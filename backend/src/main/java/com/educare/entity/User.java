@@ -1,4 +1,4 @@
-package com.educare.model;
+package com.educare.entity;
 
 import jakarta.persistence.*;
 import lombok.*;

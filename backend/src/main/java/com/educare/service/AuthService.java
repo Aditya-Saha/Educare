@@ -1,7 +1,7 @@
 package com.educare.service;
 
 import com.educare.dto.*;
-import com.educare.model.User;
+import com.educare.entity.User;
 import com.educare.repository.UserRepository;
 import com.educare.security.JwtUtil;
 import lombok.RequiredArgsConstructor;

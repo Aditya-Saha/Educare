@@ -1,6 +1,6 @@
 package com.educare.security;
 
-import com.educare.model.User;
+import com.educare.entity.User;
 import com.educare.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;

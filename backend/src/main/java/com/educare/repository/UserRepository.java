@@ -1,6 +1,6 @@
 package com.educare.repository;
 
-import com.educare.model.User;
+import com.educare.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
