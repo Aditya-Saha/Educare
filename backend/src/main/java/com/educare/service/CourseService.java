@@ -34,5 +34,19 @@ public class CourseService {
     public List<Course> getAllCourses() {
         return courseRepository.findAll();
     }
+    public Course getCourseById(Long id) {
+        return courseRepository.findById(id).orElse(null);
+    }
+
+
+    public Course updateCourse(Course existingCourse, AddCourseRequest request) {
+        existingCourse.setTitle(request.getTitle());
+        existingCourse.setDescription(request.getDescription());
+        if (request.getPrice() != null) existingCourse.setPrice(request.getPrice());
+        existingCourse.setPublished(request.isPublished());
+        existingCourse.setUpdatedAt(LocalDateTime.now());
+
+        return courseRepository.save(existingCourse);
+    }
 
 }

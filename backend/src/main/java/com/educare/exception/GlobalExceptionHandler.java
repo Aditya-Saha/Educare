@@ -15,6 +15,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<?>> handleGeneric(Exception ex) {
+        System.out.println(ex);
         return ResponseEntity.internalServerError().body(ApiResponse.error("Something went wrong"));
     }
 }

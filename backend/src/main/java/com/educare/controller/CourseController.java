@@ -9,6 +9,7 @@ import com.educare.service.UserService; // service to get logged-in user
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpStatus;
 import java.util.List;
 
 import jakarta.validation.Valid;
@@ -32,5 +33,33 @@ public class CourseController {
         List<Course> courses = courseService.getAllCourses();
         return ResponseEntity.ok(ApiResponse.ok("Courses fetched successfully", courses));
     }
+    @PutMapping("/courses/{id}")
+    public ResponseEntity<ApiResponse<Course>> editCourse(
+            @PathVariable Long id,
+            @RequestBody @Valid AddCourseRequest request) {
+
+        User teacher = userService.getCurrentUser(); // logged-in teacher
+        Course course = courseService.getCourseById(id);
+        if (!course.getTeacher().getId().equals(teacher.getId())) {
+           return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(ApiResponse.error("You are not allowed to edit this course"));
+        }
+
+        Course updatedCourse = courseService.updateCourse(course, request);
+        return ResponseEntity.ok(ApiResponse.ok("Course updated successfully", updatedCourse));
+    }
+    @GetMapping("/courses/{id}")
+    public ResponseEntity<ApiResponse<Course>> getCourseById(@PathVariable Long id) {
+        Course course = courseService.getCourseById(id);
+        if (course == null) {
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.error("Course not found"));
+        }
+        return ResponseEntity.ok(ApiResponse.ok("Course fetched successfully", course));
+    }
+
+
 
 }
