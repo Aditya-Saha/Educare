@@ -48,5 +48,14 @@ public class CourseService {
 
         return courseRepository.save(existingCourse);
     }
+    public List<Course> getAllPublishedCourses() {
+        return courseRepository.findByIsPublishedTrue();
+    }
+
+    // Return a single published course by ID
+    public Course getPublishedCourseById(Long id) {
+        return courseRepository.findByIdAndIsPublishedTrue(id)
+                .orElseThrow(() -> new RuntimeException("Course not found or not published"));
+    }
 
 }

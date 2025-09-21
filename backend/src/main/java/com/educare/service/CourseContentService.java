@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -34,5 +35,8 @@ public class CourseContentService {
 
     public CourseContent getContentById(Long id) {
         return courseContentRepository.findById(id).orElse(null);
+    }
+    public List<CourseContent> getContentsByCourseId(Long courseId) {
+        return courseContentRepository.findByCourseId(courseId);
     }
 }
