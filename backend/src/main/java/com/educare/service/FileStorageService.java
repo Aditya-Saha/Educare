@@ -36,6 +36,7 @@ public class FileStorageService {
             case "MP4":
             case "AVI":
             case "MOV":
+            case "MKV":
                 return "VIDEO";
             case "PDF":
                 return "PDF";
