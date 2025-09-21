@@ -39,9 +39,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
       setState(() => isLoading = false);
 
-      if (result["status"] == "ok" && result["data"] != null) {
+      if (result["status"] == "ok") {
         final data = result["data"];
         final prefs = await SharedPreferences.getInstance();
+
+        // ✅ Always overwrite values on login
         await prefs.setString("token", data["token"]);
         await prefs.setString("role", data["role"]);
         await prefs.setString("name", data["name"]);
@@ -50,8 +52,12 @@ class _LoginScreenState extends State<LoginScreen> {
           SnackBar(content: Text(result["msg"] ?? "Login successful")),
         );
 
-        // Navigate to home/dashboard
-        Navigator.pushReplacementNamed(context, '/home');
+        // ✅ Navigate based on role
+        if (data["role"] == "TEACHER") {
+          Navigator.pushReplacementNamed(context, '/teacherHome');
+        } else {
+          Navigator.pushReplacementNamed(context, '/studentHome');
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(result["msg"] ?? "Login failed")),
@@ -159,8 +165,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     const Text("Don't have an account?",
                         style: TextStyle(color: Colors.white70)),
                     TextButton(
-                      onPressed: () =>
-                          Navigator.pushReplacementNamed(context, '/signup'),
+                      onPressed: () => Navigator.pushReplacementNamed(
+                          context, '/signup'),
                       child: const Text("Sign Up",
                           style: TextStyle(color: Colors.blueAccent)),
                     ),
