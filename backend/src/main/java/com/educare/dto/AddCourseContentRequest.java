@@ -17,4 +17,8 @@ public class AddCourseContentRequest {
     private String fileUrl;
 
     private Integer durationSeconds; // optional
+
+    private boolean free;
+    public boolean isFree() { return free; }
+    public void setFree(boolean free) { this.free = free; }
 }

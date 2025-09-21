@@ -66,3 +66,5 @@ CREATE TABLE progress (
     last_accessed TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (enrollment_id, content_id)
 );
+ALTER TABLE course_contents
+ADD COLUMN is_free boolean NOT NULL DEFAULT false;

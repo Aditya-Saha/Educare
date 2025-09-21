@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 import java.util.List;
+import java.math.BigDecimal;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +22,14 @@ public class CourseContentService {
     public CourseContent addContent(Long courseId, AddCourseContentRequest request) {
         Optional<Course> courseOpt = courseRepository.findById(courseId);
         if (courseOpt.isEmpty()) return null;
+        
+        Course course = courseOpt.get(); // unwrap
+
+        boolean isFree = request.isFree();
+        System.out.println(isFree);
+        if (course.getPrice().compareTo(BigDecimal.ZERO) == 0) {
+            isFree = true; // override, free course cannot have paid contents
+        }
 
         CourseContent content = CourseContent.builder()
                 .course(courseOpt.get())
@@ -28,6 +37,7 @@ public class CourseContentService {
                 .fileType(request.getFileType())
                 .fileUrl(request.getFileUrl())
                 .durationSeconds(request.getDurationSeconds())
+                .isFree(isFree) 
                 .build();
 
         return courseContentRepository.save(content);

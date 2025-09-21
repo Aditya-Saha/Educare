@@ -34,4 +34,8 @@ public class CourseContent {
     @Builder.Default
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    @Column(name = "is_free", nullable = false)
+    @Builder.Default
+    private boolean isFree = false;
 }
