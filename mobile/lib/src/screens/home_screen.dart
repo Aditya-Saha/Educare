@@ -1,5 +1,79 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
+// =======================
+// Global cart list
+// =======================
+List<Map<String, dynamic>> cart = [];
+
+// =======================
+// API Service
+// =======================
+class ApiService {
+  // Replace with your PC's LAN IP for emulator testing
+  static const String baseUrl = "http://192.168.1.100:5000/api";
+
+  // Fetch all available courses
+  static Future<List<Map<String, dynamic>>> fetchCourses() async {
+    try {
+      final response = await http.get(Uri.parse("$baseUrl/courses"));
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+      } else {
+        throw Exception("Failed to load courses: ${response.statusCode}");
+      }
+    } catch (e) {
+      throw Exception("Error fetching courses: $e");
+    }
+  }
+
+  // User login
+  static Future<Map<String, dynamic>> login(String email, String password) async {
+    try {
+      final response = await http.post(
+        Uri.parse("$baseUrl/login"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"email": email, "password": password}),
+      );
+      return jsonDecode(response.body);
+    } catch (e) {
+      throw Exception("Login failed: $e");
+    }
+  }
+
+  // User signup
+  static Future<Map<String, dynamic>> signup(String name, String email, String password) async {
+    try {
+      final response = await http.post(
+        Uri.parse("$baseUrl/signup"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"name": name, "email": email, "password": password}),
+      );
+      return jsonDecode(response.body);
+    } catch (e) {
+      throw Exception("Signup failed: $e");
+    }
+  }
+
+  // Checkout cart
+  static Future<Map<String, dynamic>> checkout(List<Map<String, dynamic>> cartItems) async {
+    try {
+      final response = await http.post(
+        Uri.parse("$baseUrl/checkout"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"cart": cartItems}),
+      );
+      return jsonDecode(response.body);
+    } catch (e) {
+      throw Exception("Checkout failed: $e");
+    }
+  }
+}
+
+// =======================
+// Home Screen
+// =======================
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -11,16 +85,14 @@ class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
   bool isDarkMode = true;
-
-  // Animation controller for toggle icon rotation
   late AnimationController _iconAnimation;
 
-  static const List<Widget> _pages = <Widget>[
-    CoursesPage(),
-    BuyCoursesPage(),
-    AssignmentsPage(),
-    ProgressPage(),
-    SettingsPage(),
+  List<Widget> get _pages => [
+    CoursesPage(isDarkMode: isDarkMode),
+    BuyCoursesPage(isDarkMode: isDarkMode),
+    AssignmentsPage(isDarkMode: isDarkMode),
+    ProgressPage(isDarkMode: isDarkMode),
+    SettingsPage(isDarkMode: isDarkMode),
   ];
 
   @override
@@ -57,11 +129,8 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    // Define dynamic colors
     final bgColor = isDarkMode ? const Color(0xFF0F1724) : Colors.white;
-    final cardColor = isDarkMode ? const Color(0xFF1E293B) : Colors.grey[200];
     final textColor = isDarkMode ? Colors.white : Colors.black87;
-    final subTextColor = isDarkMode ? Colors.white70 : Colors.black54;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -78,13 +147,12 @@ class _HomeScreenState extends State<HomeScreen>
             icon: const Icon(Icons.account_circle_outlined),
             onPressed: () {},
           ),
-          // Dark/Light Mode Toggle
           IconButton(
             icon: AnimatedBuilder(
               animation: _iconAnimation,
               builder: (context, child) {
                 return Transform.rotate(
-                  angle: _iconAnimation.value * 3.14, // rotate 180 degrees
+                  angle: _iconAnimation.value * 3.14,
                   child: Icon(
                     isDarkMode ? Icons.dark_mode : Icons.light_mode,
                     color: textColor,
@@ -167,20 +235,22 @@ class _HomeScreenState extends State<HomeScreen>
         child: const Icon(Icons.logout),
         tooltip: 'Logout',
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 }
 
-
 // =======================
-// My Courses Page
+// Courses Page
 // =======================
 class CoursesPage extends StatelessWidget {
-  const CoursesPage({super.key});
+  final bool isDarkMode;
+  const CoursesPage({super.key, required this.isDarkMode});
 
   @override
   Widget build(BuildContext context) {
+    final cardColor = isDarkMode ? const Color(0xFF1E293B) : Colors.grey[200];
+    final textColor = isDarkMode ? Colors.white : Colors.black87;
+
     final List<Map<String, Object>> courses = [
       {"title": "Flutter Development", "progress": 0.7},
       {"title": "Data Science Basics", "progress": 0.4},
@@ -192,34 +262,26 @@ class CoursesPage extends StatelessWidget {
       itemBuilder: (context, index) {
         final course = courses[index];
         return Card(
-          color: const Color(0xFF1E293B),
+          color: cardColor,
           margin: const EdgeInsets.symmetric(vertical: 8),
-          shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  course["title"] as String,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold),
-                ),
+                Text(course["title"] as String,
+                    style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 LinearProgressIndicator(
                   value: course["progress"] as double,
-                  backgroundColor: Colors.white12,
+                  backgroundColor: isDarkMode ? Colors.white12 : Colors.black12,
                   color: Colors.blueAccent,
                   minHeight: 6,
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  "${((course["progress"] as double) * 100).toInt()}% Completed",
-                  style: const TextStyle(color: Colors.white70),
-                ),
+                Text("${((course["progress"] as double) * 100).toInt()}% Completed",
+                    style: TextStyle(color: textColor.withOpacity(0.7))),
               ],
             ),
           ),
@@ -232,90 +294,91 @@ class CoursesPage extends StatelessWidget {
 // =======================
 // Buy Courses Page
 // =======================
-// Global cart list
-List<Map<String, Object>> cart = [];
+class BuyCoursesPage extends StatefulWidget {
+  final bool isDarkMode;
+  const BuyCoursesPage({super.key, required this.isDarkMode});
 
-class BuyCoursesPage extends StatelessWidget {
-  const BuyCoursesPage({super.key});
+  @override
+  State<BuyCoursesPage> createState() => _BuyCoursesPageState();
+}
+
+class _BuyCoursesPageState extends State<BuyCoursesPage> {
+  late Future<List<Map<String, dynamic>>> futureCourses;
+
+  @override
+  void initState() {
+    super.initState();
+    futureCourses = ApiService.fetchCourses();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final List<Map<String, Object>> courses = [
-      {
-        "title": "Advanced Flutter",
-        "price": 49.99,
-        "description":
-        "Deep dive into Flutter: state management, animations, and advanced patterns."
-      },
-      {
-        "title": "Machine Learning",
-        "price": 59.99,
-        "description":
-        "Learn ML fundamentals, supervised & unsupervised learning, and Python implementations."
-      },
-      {
-        "title": "UI/UX Design",
-        "price": 29.99,
-        "description":
-        "Master the principles of UI/UX design and create user-friendly apps and websites."
-      },
-    ];
+    final cardColor = widget.isDarkMode ? const Color(0xFF1E293B) : Colors.grey[200];
+    final textColor = widget.isDarkMode ? Colors.white : Colors.black87;
+    final subTextColor = widget.isDarkMode ? Colors.white70 : Colors.black54;
 
-    return ListView.builder(
-      itemCount: courses.length,
-      itemBuilder: (context, index) {
-        final course = courses[index];
-        return Card(
-          color: const Color(0xFF1E293B),
-          margin: const EdgeInsets.symmetric(vertical: 8),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)),
-          child: ListTile(
-            title: Text(
-              course["title"] as String,
-              style: const TextStyle(color: Colors.white),
-            ),
-            subtitle: Text(
-              "\$${course["price"]}",
-              style: const TextStyle(color: Colors.white70),
-            ),
-            trailing:
-            const Icon(Icons.arrow_forward, color: Colors.white70),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => CourseDetailsPage(
-                    title: course["title"] as String,
-                    price: course["price"] as double,
-                    description: course["description"] as String,
-                  ),
-                ),
-              );
-            },
-          ),
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: futureCourses,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasError) {
+          return Center(child: Text("Error: ${snapshot.error}", style: TextStyle(color: textColor)));
+        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return Center(child: Text("No courses available", style: TextStyle(color: textColor)));
+        }
+
+        final courses = snapshot.data!;
+        return ListView.builder(
+          itemCount: courses.length,
+          itemBuilder: (context, index) {
+            final course = courses[index];
+            return Card(
+              color: cardColor,
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: ListTile(
+                title: Text(course["title"], style: TextStyle(color: textColor)),
+                subtitle: Text("\$${course["price"]}", style: TextStyle(color: subTextColor)),
+                trailing: Icon(Icons.arrow_forward, color: subTextColor),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => CourseDetailsPage(
+                        title: course["title"],
+                        price: course["price"].toDouble(),
+                        description: course["description"],
+                        isDarkMode: widget.isDarkMode,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            );
+          },
         );
       },
     );
   }
 }
 
-
-
 // =======================
-// Course Detail
+// Course Details Page
 // =======================
-
 class CourseDetailsPage extends StatefulWidget {
   final String title;
   final double price;
   final String description;
+  final bool isDarkMode;
 
-  const CourseDetailsPage(
-      {super.key,
-        required this.title,
-        required this.price,
-        required this.description});
+  const CourseDetailsPage({
+    super.key,
+    required this.title,
+    required this.price,
+    required this.description,
+    required this.isDarkMode,
+  });
 
   @override
   State<CourseDetailsPage> createState() => _CourseDetailsPageState();
@@ -326,96 +389,73 @@ class _CourseDetailsPageState extends State<CourseDetailsPage> {
 
   void addToCart() {
     if (!isAdded) {
-      cart.add({
-        "title": widget.title,
-        "price": widget.price,
-      });
-      setState(() {
-        isAdded = true;
-      });
+      cart.add({"title": widget.title, "price": widget.price});
+      setState(() => isAdded = true);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("${widget.title} added to cart!"),
-          duration: const Duration(seconds: 2),
-        ),
+        SnackBar(content: Text("${widget.title} added to cart!"), duration: const Duration(seconds: 2)),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final bgColor = widget.isDarkMode ? const Color(0xFF0F1724) : Colors.white;
+    final textColor = widget.isDarkMode ? Colors.white : Colors.black87;
+    final subTextColor = widget.isDarkMode ? Colors.white70 : Colors.black54;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1724),
+      backgroundColor: bgColor,
       appBar: AppBar(
-        title: Text(widget.title),
+        title: Text(widget.title, style: TextStyle(color: textColor)),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        iconTheme: IconThemeData(color: textColor),
         actions: [
           IconButton(
             icon: const Icon(Icons.shopping_cart),
+            color: textColor,
             onPressed: () {
               Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const CartPage()));
+                context,
+                MaterialPageRoute(builder: (context) => const CartPage()),
+              );
             },
           )
         ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.title,
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              "\$${widget.price.toStringAsFixed(2)}",
-              style: const TextStyle(
-                  color: Colors.blueAccent,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              widget.description,
-              style: const TextStyle(color: Colors.white70, fontSize: 16),
-            ),
-            const Spacer(),
-            Center(
-              child: ElevatedButton.icon(
-                onPressed: addToCart,
-                icon: const Icon(Icons.shopping_cart),
-                label: Text(isAdded ? "Added" : "Add to Cart"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: isAdded ? Colors.grey : Colors.blueAccent,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 32, vertical: 14),
-                  textStyle: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(widget.title, style: TextStyle(color: textColor, fontSize: 24, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          Text("\$${widget.price.toStringAsFixed(2)}",
+              style: const TextStyle(color: Colors.blueAccent, fontSize: 20, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          Text(widget.description, style: TextStyle(color: subTextColor, fontSize: 16)),
+          const Spacer(),
+          Center(
+            child: ElevatedButton.icon(
+              onPressed: addToCart,
+              icon: const Icon(Icons.shopping_cart),
+              label: Text(isAdded ? "Added" : "Add to Cart"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isAdded ? Colors.grey : Colors.blueAccent,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
-            const SizedBox(height: 20),
-          ],
-        ),
+          ),
+          const SizedBox(height: 20),
+        ]),
       ),
     );
   }
 }
 
 // =======================
-// Add to Cart
+// Cart Page
 // =======================
-
 class CartPage extends StatefulWidget {
   const CartPage({super.key});
 
@@ -436,6 +476,22 @@ class _CartPageState extends State<CartPage> {
     setState(() {
       cart.removeAt(index);
     });
+  }
+
+  void checkout() async {
+    try {
+      final response = await ApiService.checkout(cart);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(response["message"] ?? "Checkout successful!")),
+      );
+      setState(() {
+        cart.clear();
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Checkout failed: $e")),
+      );
+    }
   }
 
   @override
@@ -463,16 +519,12 @@ class _CartPageState extends State<CartPage> {
                 final item = cart[index];
                 return Card(
                   color: const Color(0xFF1E293B),
-                  margin: const EdgeInsets.symmetric(
-                      vertical: 8, horizontal: 16),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                  margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   child: ListTile(
-                    title: Text(item["title"] as String,
-                        style: const TextStyle(color: Colors.white)),
+                    title: Text(item["title"] as String, style: const TextStyle(color: Colors.white)),
                     subtitle: Text("\$${item["price"]}",
-                        style:
-                        const TextStyle(color: Colors.white70)),
+                        style: const TextStyle(color: Colors.white70)),
                     trailing: IconButton(
                       icon: const Icon(Icons.delete, color: Colors.red),
                       onPressed: () => removeItem(index),
@@ -489,29 +541,14 @@ class _CartPageState extends State<CartPage> {
               children: [
                 Text(
                   "Total: \$${totalPrice.toStringAsFixed(2)}",
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold),
+                  style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                 ),
                 ElevatedButton(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("Checkout successful!"),
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                    setState(() {
-                      cart.clear();
-                    });
-                  },
+                  onPressed: checkout,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blueAccent,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 24, vertical: 12),
-                    textStyle: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   child: const Text("Checkout"),
                 ),
@@ -524,13 +561,12 @@ class _CartPageState extends State<CartPage> {
   }
 }
 
-
-
 // =======================
 // Assignments Page
 // =======================
 class AssignmentsPage extends StatelessWidget {
-  const AssignmentsPage({super.key});
+  final bool isDarkMode;
+  const AssignmentsPage({super.key, required this.isDarkMode});
 
   @override
   Widget build(BuildContext context) {
@@ -547,18 +583,11 @@ class AssignmentsPage extends StatelessWidget {
         return Card(
           color: const Color(0xFF1E293B),
           margin: const EdgeInsets.symmetric(vertical: 8),
-          shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: ListTile(
-            title: Text(
-              assignment["title"]!,
-              style: const TextStyle(color: Colors.white),
-            ),
-            subtitle: Text(
-              "Due: ${assignment["due"]}",
-              style: const TextStyle(color: Colors.white70),
-            ),
-            trailing: const Icon(Icons.chevron_right, color: Colors.white70),
+            title: Text(assignment["title"]!, style: const TextStyle(color: Colors.white)),
+            subtitle: Text("Due: ${assignment["due"]}", style: const TextStyle(color: Colors.white70)),
+            trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 16),
             onTap: () {},
           ),
         );
@@ -571,61 +600,23 @@ class AssignmentsPage extends StatelessWidget {
 // Progress Page
 // =======================
 class ProgressPage extends StatelessWidget {
-  const ProgressPage({super.key});
+  const ProgressPage({super.key, required this.isDarkMode});
+  final bool isDarkMode;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const SizedBox(height: 20),
-        const Text(
-          "Your Learning Progress",
-          style: TextStyle(
-              color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 20),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: LinearProgressIndicator(
-            value: 0.5,
-            backgroundColor: Colors.white12,
-            color: Colors.greenAccent,
-            minHeight: 12,
-          ),
-        ),
-        const SizedBox(height: 12),
-        const Text(
-          "50% Completed",
-          style: TextStyle(color: Colors.white70),
-        ),
-        const SizedBox(height: 30),
-        Expanded(
-          child: ListView(
-            children: const [
-              Card(
-                color: Color(0xFF1E293B),
-                margin: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                child: ListTile(
-                  title: Text("Flutter Development",
-                      style: TextStyle(color: Colors.white)),
-                  subtitle: Text("70% Completed",
-                      style: TextStyle(color: Colors.white70)),
-                ),
-              ),
-              Card(
-                color: Color(0xFF1E293B),
-                margin: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                child: ListTile(
-                  title: Text("Data Science",
-                      style: TextStyle(color: Colors.white)),
-                  subtitle: Text("40% Completed",
-                      style: TextStyle(color: Colors.white70)),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+    final textColor = isDarkMode ? Colors.white : Colors.black87;
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.bar_chart, color: Colors.blueAccent, size: 80),
+          const SizedBox(height: 20),
+          Text("Your Progress Reports",
+              style: TextStyle(color: textColor, fontSize: 20, fontWeight: FontWeight.bold)),
+        ],
+      ),
     );
   }
 }
@@ -634,42 +625,15 @@ class ProgressPage extends StatelessWidget {
 // Settings Page
 // =======================
 class SettingsPage extends StatelessWidget {
-  const SettingsPage({super.key});
+  final bool isDarkMode;
+  const SettingsPage({super.key, required this.isDarkMode});
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      children: [
-        Card(
-          color: const Color(0xFF1E293B),
-          margin: const EdgeInsets.symmetric(vertical: 8),
-          child: ListTile(
-            leading: const Icon(Icons.person, color: Colors.white),
-            title: const Text("Profile", style: TextStyle(color: Colors.white)),
-            onTap: () {},
-          ),
-        ),
-        Card(
-          color: const Color(0xFF1E293B),
-          margin: const EdgeInsets.symmetric(vertical: 8),
-          child: ListTile(
-            leading: const Icon(Icons.lock, color: Colors.white),
-            title: const Text("Change Password",
-                style: TextStyle(color: Colors.white)),
-            onTap: () {},
-          ),
-        ),
-        Card(
-          color: const Color(0xFF1E293B),
-          margin: const EdgeInsets.symmetric(vertical: 8),
-          child: ListTile(
-            leading: const Icon(Icons.notifications, color: Colors.white),
-            title: const Text("Notifications",
-                style: TextStyle(color: Colors.white)),
-            onTap: () {},
-          ),
-        ),
-      ],
+    final textColor = isDarkMode ? Colors.white : Colors.black87;
+
+    return Center(
+      child: Text("Settings Page", style: TextStyle(color: textColor, fontSize: 18)),
     );
   }
 }
