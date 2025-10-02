@@ -8,6 +8,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 import com.educare.entity.User;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
+import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeTokenRequest;
+import com.google.api.client.googleapis.auth.oauth2.GoogleTokenResponse;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import com.google.api.client.auth.oauth2.TokenResponse;
+
 
 @RestController
 @RequestMapping("/api/auth")
@@ -80,4 +88,5 @@ public class AuthController {
         // authService.logout(token);
         return ResponseEntity.ok(ApiResponse.ok("Logout successful", null));
     }
+
 }
