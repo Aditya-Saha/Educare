@@ -15,6 +15,50 @@ import com.educare.entity.User;
 public class AuthController {
 
     private final AuthService authService;
+    @Value("${GOOGLE_CLIENT_ID}") 
+    private String clientId;
+
+    @Value("${GOOGLE_CLIENT_SECRET}")
+    private String clientSecret;
+
+    @Value("${google.redirect.uri}")
+    private String redirectUri;
+
+/*  https://accounts.google.com/o/oauth2/auth?
+    scope=https://www.googleapis.com/auth/youtube.upload&
+    access_type=offline&
+    include_granted_scopes=true&
+    response_type=code&
+    redirect_uri=http://localhost:8080/api/auth/youtube/oauth/callback&
+    client_id=967252627443-2i62bfrbg7v0hpf1f1kud1m7td1mrfoq.apps.googleusercontent.com */
+
+    @GetMapping("/youtube/oauth/callback")
+    public ResponseEntity<String> youtubeOAuthCallback(@RequestParam String code) {
+        try {
+            System.out.println("clientSecret------->" + clientSecret);
+            TokenResponse response = new GoogleAuthorizationCodeTokenRequest(
+                    new NetHttpTransport(),
+                    GsonFactory.getDefaultInstance(),
+                    clientId,
+                    clientSecret,
+                    code,
+                    redirectUri)
+                    .execute();
+
+            
+            String refreshToken = response.getRefreshToken();
+            String accessToken = response.getAccessToken();
+
+            // TODO: Save refreshToken in your database or secure storage
+            System.out.println("Refresh token: " + refreshToken);
+            System.out.println("Access token: " + accessToken);
+
+            System.out.println(response);
+            return ResponseEntity.ok("Refresh token saved successfully!");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<?>> register(@RequestBody @Valid RegisterRequest request) {

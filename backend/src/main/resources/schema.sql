@@ -1,3 +1,7 @@
+curl --location 'https://accounts.google.com/o/oauth2/auth?scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fyoutube.upload&access_type=offline&include_granted_scopes=true&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Fapi%2Fauth%2Fyoutube%2Foauth%2Fcallback&client_id=967252627443-2i62bfrbg7v0hpf1f1kud1m7td1mrfoq.apps.googleusercontent.com'
+
+'https://accounts.google.com/o/oauth2/auth?scope=https://www.googleapis.com/auth/youtube.upload&access_type=offline&include_granted_scopes=true&response_type=code&redirect_uri=http://localhost:8080/api/auth/youtube/oauth/callback&client_id=967252627443-jb04c3epqil13lo4i9aecr8akqe3iupo.apps.googleusercontent.com&prompt=consent'
+
 -- 1. Users (both Students & Teachers)
 CREATE TABLE users (
     id BIGSERIAL PRIMARY KEY,
