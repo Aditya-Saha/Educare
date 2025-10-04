@@ -32,14 +32,6 @@ public class AuthController {
     @Value("${google.redirect.uri}")
     private String redirectUri;
 
-/*  https://accounts.google.com/o/oauth2/auth?
-    scope=https://www.googleapis.com/auth/youtube.upload&
-    access_type=offline&
-    include_granted_scopes=true&
-    response_type=code&
-    redirect_uri=http://localhost:8080/api/auth/youtube/oauth/callback&
-    client_id=967252627443-2i62bfrbg7v0hpf1f1kud1m7td1mrfoq.apps.googleusercontent.com */
-
     @GetMapping("/youtube/oauth/callback")
     public ResponseEntity<String> youtubeOAuthCallback(@RequestParam String code) {
         try {
