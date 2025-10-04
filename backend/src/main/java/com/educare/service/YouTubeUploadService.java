@@ -9,6 +9,7 @@ import com.google.api.services.youtube.model.VideoSnippet;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Value;
 
+import org.springframework.web.multipart.MultipartFile;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Arrays;
@@ -82,5 +83,16 @@ public class YouTubeUploadService {
             Video response = request.execute();
             return response.getId();
         }
+    }
+    public void uploadThumbnail(String videoId, MultipartFile thumbnail) throws IOException {
+        InputStreamContent mediaContent = new InputStreamContent(
+                thumbnail.getContentType(),
+                thumbnail.getInputStream()
+        );
+
+        YouTube.Thumbnails.Set thumbnailRequest = youtube.thumbnails()
+                .set(videoId, mediaContent);
+
+        thumbnailRequest.execute();
     }
 }

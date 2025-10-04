@@ -33,9 +33,11 @@ public class UploadController {
             "dnxhr", "prores", "cineform", "hevc"
     );
 
+    
+
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<Map<String, String>>> uploadFile(
-            @RequestParam("file") MultipartFile file) {
+            @RequestParam("file") MultipartFile file, @RequestParam(value = "thumbnail", required = false) MultipartFile thumbnail) {
         System.out.println("------------HERE ................");
         try {
             String url;
@@ -53,6 +55,18 @@ public class UploadController {
                     if(!SUPPORTED_EXTENSIONS.contains(extension)) {
                         return ResponseEntity.badRequest().body(ApiResponse.error("Unsupported video format"));
                     }
+                    String thumbContentType = thumbnail.getContentType();
+                    if (thumbContentType == null || 
+                        !(thumbContentType.equals("image/jpeg") ||
+                        thumbContentType.equals("image/png") ||
+                        thumbContentType.equals("image/gif"))) {
+                        return ResponseEntity.badRequest().body(ApiResponse.error("Invalid thumbnail format. Allowed: JPG, PNG, GIF"));
+                    }
+
+                    if (thumbnail.getSize() > 2 * 1024 * 1024) {
+                        return ResponseEntity.badRequest().body(ApiResponse.error("Thumbnail too large. Max 2MB allowed."));
+                    }
+
                     // Save the MultipartFile temporarily
                     String tempFilePath = System.getProperty("java.io.tmpdir") + "/" + file.getOriginalFilename();
                     Files.copy(file.getInputStream(), Paths.get(tempFilePath), StandardCopyOption.REPLACE_EXISTING);
@@ -65,6 +79,11 @@ public class UploadController {
                             new String[]{},    // tags, empty for now
                             "unlisted"         // privacy
                     );
+
+                    // Upload thumbnail if provided
+                    if (thumbnail != null && !thumbnail.isEmpty()) {
+                        youtubeUploadService.uploadThumbnail(videoId, thumbnail);
+                    }
 
                     url = "https://youtu.be/" + videoId;
 
