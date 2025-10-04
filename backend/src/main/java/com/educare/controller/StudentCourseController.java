@@ -57,4 +57,23 @@ public class StudentCourseController {
             return ResponseEntity.ok(ApiResponse.error("Failed to fetch course contents: " + e.getMessage()));
         }
     }
+    @GetMapping("/courses/{courseId}/contents/{contentId}")
+    public ResponseEntity<ApiResponse<CourseContent>> getCourseContentById(
+            @PathVariable Long courseId,
+            @PathVariable Long contentId) {
+
+        try {
+            CourseContent content = courseContentService.getPublishedCourseContentById(courseId, contentId);
+
+            if (content == null) {
+                return ResponseEntity.ok(ApiResponse.error("Course content not found or course not published"));
+            }
+
+            return ResponseEntity.ok(ApiResponse.ok("Course content fetched successfully", content));
+
+        } catch (Exception e) {
+            return ResponseEntity.ok(ApiResponse.error("Failed to fetch course content: " + e.getMessage()));
+        }
+    }
+
 }

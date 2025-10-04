@@ -82,5 +82,22 @@ public class CourseContentService {
     public List<CourseContent> getContentsByCourseId(Long courseId) {
         return courseContentRepository.findByCourseId(courseId);
     }
+    public CourseContent getPublishedCourseContentById(Long courseId, Long contentId) {
+        // Step 1: Check if course is published
+        Course course = courseRepository.findByIdAndIsPublishedTrue(courseId)
+                .orElse(null);
+        if (course == null) {
+            return null; // Course either doesn't exist or isn't published
+        }
+
+        // Step 2: Check if content belongs to this course
+        CourseContent content = courseContentRepository.findById(contentId).orElse(null);
+        if (content == null || !content.getCourse().getId().equals(courseId)) {
+            return null;
+        }
+
+        return content;
+    }
+
 
 }
