@@ -37,37 +37,16 @@ public class CourseContentService {
         }
     }
 
-    public CourseContent addContent(Long courseId, MultipartFile file, String title, boolean isFree) {
+    public CourseContent addContent(Long courseId,  String title, String fileType, String fileUrl, Integer durationSeconds, boolean isFree) {
         Course course = courseRepository.findById(courseId)
-                .orElseThrow(() -> new RuntimeException("Course not found"));
-
-        String fileType = getFileType(file.getOriginalFilename());
-        String fileUrl;
-
-        if ("VIDEO".equals(fileType)) {
-            try {
-                File convFile = new File(System.getProperty("java.io.tmpdir") + "/" + file.getOriginalFilename());
-                file.transferTo(convFile);
-
-                fileUrl = youtubeUploadService.uploadVideo(convFile.getAbsolutePath(), file.getOriginalFilename(), "Uploaded via Educare" ,new String[]{"Education"}, "private");
-            } catch (IOException e) {
-                throw new RuntimeException("Failed to process file upload", e);
-            }
-
-        } else {
-            try {
-                fileUrl = fileStorageService.storeFile(file); // local storage
-            } catch (IOException e) {
-                throw new RuntimeException("Failed to store file", e);
-            }
-        }
+                .orElseThrow(() -> new RuntimeException("Course not found"));        
 
         CourseContent content = CourseContent.builder()
                 .course(course)
                 .title(title)
                 .fileType(fileType)
                 .fileUrl(fileUrl)
-                .durationSeconds(null) // optional
+                .durationSeconds(durationSeconds != null ? durationSeconds : null)
                 .isFree(isFree)
                 .build();
 

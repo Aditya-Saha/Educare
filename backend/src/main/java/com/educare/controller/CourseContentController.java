@@ -33,13 +33,18 @@ public class CourseContentController {
         }
     }
 
-    @PostMapping(value = "/courses/{courseId}/contents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/courses/{courseId}/contents")
     public ResponseEntity<ApiResponse<CourseContent>> addContent(
             @PathVariable Long courseId,
-            @RequestPart("file") MultipartFile file,
-            @RequestPart("title") String title,
-            @RequestPart("isFree") boolean isFree) {
-        CourseContent savedContent = courseContentService.addContent(courseId, file, title, isFree);
+            @RequestBody AddCourseContentRequest request) {
+
+        CourseContent savedContent = courseContentService.addContent(
+            courseId,
+            request.getTitle(),
+            request.getFileType(),
+            request.getFileUrl(),
+            request.getDurationSeconds(),
+            request.isFree());
 
         if (savedContent == null) {
             return ResponseEntity
