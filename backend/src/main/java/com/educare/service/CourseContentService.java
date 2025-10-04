@@ -52,6 +52,27 @@ public class CourseContentService {
 
         return courseContentRepository.save(content);
     }
+    public CourseContent updateContent(Long courseId, Long contentId, String title, String fileType, String fileUrl, Integer durationSeconds, boolean isFree) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new RuntimeException("Course not found with id: " + courseId));
+
+        CourseContent content = courseContentRepository.findById(contentId)
+                .orElse(null);
+
+        if (content == null || !content.getCourse().getId().equals(courseId)) {
+            return null; // either not found or not part of this course
+        }
+
+        // Update fields
+        content.setTitle(title);
+        content.setFileType(fileType);
+        content.setFileUrl(fileUrl);
+        content.setDurationSeconds(durationSeconds);
+        content.setFree(isFree);
+
+        return courseContentRepository.save(content);
+    }
+
 
     public CourseContent getContentById(Long id) {
         return courseContentRepository.findById(id)

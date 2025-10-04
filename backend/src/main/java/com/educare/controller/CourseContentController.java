@@ -54,6 +54,31 @@ public class CourseContentController {
 
         return ResponseEntity.ok(ApiResponse.ok("Content added successfully", savedContent));
     }
+    @PutMapping("/courses/{courseId}/contents/{contentId}")
+    public ResponseEntity<ApiResponse<CourseContent>> updateContent(
+            @PathVariable Long courseId,
+            @PathVariable Long contentId,
+            @RequestBody AddCourseContentRequest request) {
+
+        CourseContent updatedContent = courseContentService.updateContent(
+                courseId,
+                contentId,
+                request.getTitle(),
+                request.getFileType(),
+                request.getFileUrl(),
+                request.getDurationSeconds(),
+                request.isFree()
+        );
+
+        if (updatedContent == null) {
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.error("Content not found with id: " + contentId));
+        }
+
+        return ResponseEntity.ok(ApiResponse.ok("Content updated successfully", updatedContent));
+    }
+
 
     @GetMapping("/contents/{id}")
     public ResponseEntity<ApiResponse<CourseContent>> getContent(@PathVariable Long id) {
