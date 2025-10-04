@@ -20,6 +20,8 @@ mobile/android/app/*.keystore
 mobile/android/app/*.jks
 mobile/android/local.properties
 
+
+uploads/
 # ------------------------
 # Spring Boot (Gradle)
 # ------------------------

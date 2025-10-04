@@ -133,7 +133,7 @@ public class UploadController {
         Path path = Paths.get(uploadDir, filename);
         Files.createDirectories(path.getParent());
         Files.copy(file.getInputStream(), path, StandardCopyOption.REPLACE_EXISTING);
-        return baseUrl + "/" + uploadDir + "/" + filename;
+        return baseUrl + "/uploads/" + filename;
     }
 
 }
