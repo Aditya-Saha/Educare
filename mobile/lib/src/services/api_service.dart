@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   // Base URL (replace with your LAN/WiFi IP)
-  static const String baseUrl = "http://192.168.0.104:8080/api";
+  static const String baseUrl = "http://192.168.0.106:8080/api";
 
   static String? _token;
   static String? _role;

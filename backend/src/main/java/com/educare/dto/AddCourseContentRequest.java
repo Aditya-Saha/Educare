@@ -13,6 +13,7 @@ public class AddCourseContentRequest {
     @NotBlank
     private String fileType; // VIDEO, PPT, PDF, DOC
 
+
     @NotBlank
     private String fileUrl;
 
