@@ -12,6 +12,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import com.educare.repository.UserRepository;
 
 import java.io.IOException;
 
@@ -23,6 +24,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Autowired
     private UserDetailsService userDetailsService; // your custom UserDetailsServiceImpl
+    @Autowired
+    private UserRepository userRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -45,15 +48,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         // Validate & authenticate
         if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = this.userDetailsService.loadUserByUsername(email);
+            var user = userRepository.findByEmail(email).orElse(null);
+            if (user != null && jwtUtil.isTokenValid(jwt, user.getEmail())) {
 
-            if (jwtUtil.isTokenValid(jwt, userDetails.getUsername())) {
+                // ✅ Use your actual User entity as the principal
                 UsernamePasswordAuthenticationToken authToken =
                         new UsernamePasswordAuthenticationToken(
-                                userDetails, null, userDetails.getAuthorities()
+                                user, // <---- principal is your com.educare.entity.User
+                                null,
+                                user.getAuthorities()
                         );
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
+                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
         }

@@ -72,3 +72,14 @@ CREATE TABLE progress (
 );
 ALTER TABLE course_contents
 ADD COLUMN is_free boolean NOT NULL DEFAULT false;
+
+CREATE TABLE notes (
+    id BIGSERIAL PRIMARY KEY,
+    course_id BIGINT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    parent_note_id BIGINT REFERENCES notes(id) ON DELETE CASCADE, -- for replies
+    title VARCHAR(200),       -- optional, mainly for main notes
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
