@@ -24,11 +24,20 @@ public class CourseController {
     private final UserService userService; // provides currently logged-in user
 
     @PostMapping("/courses")
-    public ResponseEntity<ApiResponse<Course>> addCourse(@RequestBody @Valid AddCourseRequest request) {
-        User teacher = userService.getCurrentUser(); // teacher from JWT
-        Course savedCourse = courseService.addCourse(teacher, request);
+    public ResponseEntity<ApiResponse<Course>> addCourse(
+            @RequestBody @Valid AddCourseRequest request,
+            @AuthenticationPrincipal User currentUser) {
+
+        if (currentUser == null) {
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error("User not authenticated"));
+        }
+
+        Course savedCourse = courseService.addCourse(currentUser, request);
         return ResponseEntity.ok(ApiResponse.ok("Course added successfully", savedCourse));
     }
+
     @GetMapping("/courses")
     public ResponseEntity<ApiResponse<List<Course>>> getAllCourses() {
         List<Course> courses = courseService.getAllCourses();
