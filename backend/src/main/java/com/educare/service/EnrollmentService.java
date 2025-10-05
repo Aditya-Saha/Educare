@@ -62,6 +62,19 @@ public class EnrollmentService {
                 .enrolledAt(saved.getEnrolledAt())
                 .build();
     }
+    @Transactional
+    public void revokeFreeEnrollment(Long enrollmentId, User teacher) {
+        Enrollment enrollment = enrollmentRepository.findById(enrollmentId)
+                .orElseThrow(() -> new RuntimeException("Enrollment not found"));
+
+        // Only the teacher who granted the enrollment can revoke it
+        if (enrollment.getAccessGrantedBy() == null || 
+            !enrollment.getAccessGrantedBy().getId().equals(teacher.getId())) {
+            throw new RuntimeException("You are not authorized to revoke this enrollment");
+        }
+
+        enrollmentRepository.delete(enrollment);
+    }
 
     public EnrollmentResponse getEnrollment(Long id) {
         Enrollment e = enrollmentRepository.findById(id)

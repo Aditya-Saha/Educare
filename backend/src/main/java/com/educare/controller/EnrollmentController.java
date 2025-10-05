@@ -35,6 +35,24 @@ public class EnrollmentController {
             return ResponseEntity.ok(ApiResponse.error("Failed: " + e.getMessage()));
         }
     }
+    @DeleteMapping("/free/revoke")
+    public ResponseEntity<ApiResponse<String>> revokeFreeEnrollment(
+            @RequestParam Long enrollmentId,
+            @AuthenticationPrincipal User currentUser) {
+
+        try {
+            if (currentUser == null || !"TEACHER".equalsIgnoreCase(currentUser.getRole())) {
+                return ResponseEntity.status(403)
+                        .body(ApiResponse.error("Access denied: Only teachers can revoke free enrollment"));
+            }
+
+            enrollmentService.revokeFreeEnrollment(enrollmentId, currentUser);
+            return ResponseEntity.ok(ApiResponse.ok("Free enrollment revoked successfully", null));
+
+        } catch (Exception e) {
+            return ResponseEntity.ok(ApiResponse.error("Failed: " + e.getMessage()));
+        }
+    }
 
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<EnrollmentResponse>> getEnrollmentById(@PathVariable Long id) {
