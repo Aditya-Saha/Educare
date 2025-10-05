@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../services/api_service.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 class TeacherHomeScreen extends StatefulWidget {
   const TeacherHomeScreen({super.key});
@@ -16,11 +17,9 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
   bool isDarkMode = true;
   late AnimationController _iconAnimation;
 
-  // Pages
   final List<Widget> _pages = const [
     MyCoursesPage(),
     AddCoursePage(),
-    UploadContentPage(),
     SettingsPage(),
   ];
 
@@ -112,10 +111,6 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
             label: 'Add Course',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.upload_file),
-            label: 'Upload Content',
-          ),
-          BottomNavigationBarItem(
             icon: Icon(Icons.settings_outlined),
             label: 'Settings',
           ),
@@ -132,12 +127,6 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
     );
   }
 }
-
-//
-// =======================
-// Teacher Pages
-// =======================
-//
 
 /// My Courses Page
 class MyCoursesPage extends StatefulWidget {
@@ -165,7 +154,8 @@ class _MyCoursesPageState extends State<MyCoursesPage> {
   void _editCourse(Map<String, dynamic> course) {
     final titleController = TextEditingController(text: course["title"]);
     final descController = TextEditingController(text: course["description"]);
-    final priceController = TextEditingController(text: course["price"]?.toString() ?? "0");
+    final priceController =
+    TextEditingController(text: course["price"]?.toString() ?? "0");
 
     showDialog(
       context: context,
@@ -224,6 +214,15 @@ class _MyCoursesPageState extends State<MyCoursesPage> {
     );
   }
 
+  void _viewCourseContent(Map<String, dynamic> course) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CourseContentPage(course: course),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
@@ -235,11 +234,11 @@ class _MyCoursesPageState extends State<MyCoursesPage> {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
             return Center(
-              child: Text("❌ Failed to load courses:\n${snapshot.error}"),
+              child: Text("Failed to load courses:\n${snapshot.error}"),
             );
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return const Center(
-              child: Text("📭 No courses found. Add a course to get started."),
+              child: Text("No courses found. Add a course to get started."),
             );
           }
 
@@ -249,20 +248,38 @@ class _MyCoursesPageState extends State<MyCoursesPage> {
             itemBuilder: (context, index) {
               final course = courses[index];
               return Card(
+                margin: const EdgeInsets.symmetric(vertical: 8),
                 child: ListTile(
-                  leading: const Icon(Icons.menu_book),
-                  title: Text(course["title"] ?? "Untitled"),
+                  leading: const Icon(Icons.menu_book, size: 40),
+                  title: Text(
+                    course["title"] ?? "Untitled",
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   subtitle: Text(course["description"] ?? "No description"),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text("₹${course["price"] ?? 0}"),
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            "₹${course["price"] ?? 0}",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 8),
                       IconButton(
                         icon: const Icon(Icons.edit, color: Colors.blueAccent),
                         onPressed: () => _editCourse(course),
                       ),
                     ],
                   ),
+                  onTap: () => _viewCourseContent(course),
                 ),
               );
             },
@@ -272,6 +289,790 @@ class _MyCoursesPageState extends State<MyCoursesPage> {
     );
   }
 }
+
+/// Course Content Page
+class CourseContentPage extends StatefulWidget {
+  final Map<String, dynamic> course;
+
+  const CourseContentPage({super.key, required this.course});
+
+  @override
+  State<CourseContentPage> createState() => _CourseContentPageState();
+}
+
+class _CourseContentPageState extends State<CourseContentPage> {
+  late Future<List<Map<String, dynamic>>> _contentFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadContent();
+  }
+
+  void _loadContent() {
+    setState(() {
+      _contentFuture = ApiService.fetchCourseContent(widget.course["id"]);
+    });
+  }
+
+  void _addContent() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddCourseContentPage(course: widget.course),
+      ),
+    ).then((_) => _loadContent());
+  }
+
+  String _getYouTubeThumbnail(String url) {
+    String? videoId = _extractVideoId(url);
+    if (videoId != null) {
+      return 'https://img.youtube.com/vi/$videoId/maxresdefault.jpg';
+    }
+    return '';
+  }
+
+  String? _extractVideoId(String url) {
+    if (url.contains('youtu.be/')) {
+      return url.split('youtu.be/').last.split('?').first.split('&').first;
+    }
+    if (url.contains('youtube.com/watch?v=')) {
+      final uri = Uri.parse(url);
+      return uri.queryParameters['v'];
+    }
+    if (url.contains('youtube.com/embed/')) {
+      return url.split('youtube.com/embed/').last.split('?').first;
+    }
+    return null;
+  }
+
+  void _playVideo(String url) {
+    final videoId = _extractVideoId(url);
+    if (videoId != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CustomVideoPlayerPage(videoId: videoId),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Invalid video URL")),
+      );
+    }
+  }
+
+  IconData _getFileIcon(String fileType) {
+    switch (fileType.toUpperCase()) {
+      case 'VIDEO':
+        return Icons.play_circle_filled;
+      case 'PDF':
+        return Icons.picture_as_pdf;
+      case 'PPT':
+        return Icons.slideshow;
+      case 'DOC':
+        return Icons.description;
+      default:
+        return Icons.insert_drive_file;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.course["title"] ?? "Course Content"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: _addContent,
+            tooltip: "Add Content",
+          ),
+        ],
+      ),
+      body: FutureBuilder<List<Map<String, dynamic>>>(
+        future: _contentFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(
+              child: Text("Failed to load content:\n${snapshot.error}"),
+            );
+          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.video_library_outlined,
+                      size: 80, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  const Text(
+                    "No videos added yet",
+                    style: TextStyle(fontSize: 18, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton.icon(
+                    onPressed: _addContent,
+                    icon: const Icon(Icons.add),
+                    label: const Text("Add Content"),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          final contents = snapshot.data!;
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: contents.length,
+            itemBuilder: (context, index) {
+              final content = contents[index];
+              final fileType = content["fileType"] ?? "VIDEO";
+              final url = content["fileUrl"] ?? "";
+              final title = content["title"] ?? "Untitled";
+              final isFree = content["isFree"] ?? false;
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (fileType.toUpperCase() == "VIDEO")
+                      GestureDetector(
+                        onTap: () => _playVideo(url),
+                        child: Stack(
+                          children: [
+                            Image.network(
+                              _getYouTubeThumbnail(url),
+                              width: double.infinity,
+                              height: 200,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  height: 200,
+                                  color: Colors.grey[300],
+                                  child: const Icon(Icons.video_library,
+                                      size: 60),
+                                );
+                              },
+                            ),
+                            Positioned.fill(
+                              child: Center(
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black54,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.play_arrow,
+                                    color: Colors.white,
+                                    size: 40,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(_getFileIcon(fileType),
+                                  color: Colors.blueAccent),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  title,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              Chip(
+                                label: Text(
+                                  isFree ? "FREE" : "PAID",
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                backgroundColor:
+                                isFree ? Colors.green : Colors.orange,
+                                labelPadding:
+                                const EdgeInsets.symmetric(horizontal: 8),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            fileType.toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 12,
+                            ),
+                          ),
+                          if (content["durationSeconds"] != null)
+                            Text(
+                              "Duration: ${content["durationSeconds"]} seconds",
+                              style: const TextStyle(
+                                color: Colors.grey,
+                                fontSize: 12,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _addContent,
+        child: const Icon(Icons.add),
+        tooltip: "Add Content",
+      ),
+    );
+  }
+}
+
+/// Add Course Content Page
+/// Add Course Content Page
+class AddCourseContentPage extends StatefulWidget {
+  final Map<String, dynamic> course;
+  const AddCourseContentPage({super.key, required this.course});
+
+  @override
+  State<AddCourseContentPage> createState() => _AddCourseContentPageState();
+}
+
+class _AddCourseContentPageState extends State<AddCourseContentPage> {
+  final _formKey = GlobalKey<FormState>();
+  final _titleController = TextEditingController();
+  bool _isUploading = false;
+  bool _isFree = false;
+  File? _selectedVideo;
+  File? _selectedThumbnail;
+  String? _selectedVideoName;
+  String? _selectedThumbnailName;
+
+  Future<void> _pickVideo() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.video,
+    );
+    if (result != null && result.files.single.path != null) {
+      setState(() {
+        _selectedVideo = File(result.files.single.path!);
+        _selectedVideoName = result.files.single.name;
+      });
+    }
+  }
+
+  Future<void> _pickThumbnail() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+    );
+    if (result != null && result.files.single.path != null) {
+      setState(() {
+        _selectedThumbnail = File(result.files.single.path!);
+        _selectedThumbnailName = result.files.single.name;
+      });
+    }
+  }
+
+  Future<void> _uploadAndSubmit() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_selectedVideo == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please select a video to upload")),
+      );
+      return;
+    }
+
+    setState(() => _isUploading = true);
+    try {
+      final uploadResponse = await ApiService.uploadCourseFile(
+        _selectedVideo!,
+        thumbnail: _selectedThumbnail,
+        // title: _titleController.text.trim(),
+      );
+
+      if (uploadResponse["status"] == "ok") {
+        final fileUrl = uploadResponse["data"]["url"];
+        final fileType = uploadResponse["data"]["fileType"];
+
+
+        await ApiService.addCourseContent(
+          courseId: widget.course["id"],
+          title: _titleController.text.trim(),
+          fileType: fileType,
+          fileUrl: fileUrl,
+          isFree: _isFree,
+        );
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Content added successfully"),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pop(context);
+      } else {
+        throw Exception(uploadResponse["msg"] ?? "Upload failed");
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Failed to add content: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+    setState(() => _isUploading = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Add Video Content"),
+        backgroundColor: Colors.blueAccent,
+      ),
+      body: Container(
+        color: Colors.grey[100],
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Form(
+            key: _formKey,
+            child: ListView(
+              children: [
+                Card(
+                  elevation: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Course: ${widget.course["title"]}",
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          "Add new video to this course",
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Card(
+                  elevation: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "Video Details",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _titleController,
+                          style: const TextStyle(color: Colors.black87),
+                          decoration: InputDecoration(
+                            labelText: "Video Title",
+                            labelStyle: const TextStyle(color: Colors.black54),
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.title, color: Colors.blueAccent),
+                            filled: true,
+                            fillColor: Colors.white,
+                            hintText: "e.g., Introduction to Course",
+                            hintStyle: TextStyle(color: Colors.grey[400]),
+                          ),
+                          validator: (value) =>
+                          value == null || value.isEmpty ? "Enter video title" : null,
+                        ),
+                        const SizedBox(height: 16),
+                        SwitchListTile(
+                          title: const Text(
+                            "Free Content",
+                            style: TextStyle(
+                              fontWeight: FontWeight.w500,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          subtitle: Text(
+                            _isFree
+                                ? "Available to all students"
+                                : "Requires course purchase",
+                            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                          ),
+                          value: _isFree,
+                          onChanged: (value) {
+                            setState(() {
+                              _isFree = value;
+                            });
+                          },
+                          activeColor: Colors.green,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Card(
+                  elevation: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "Upload Files",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          onPressed: _isUploading ? null : _pickVideo,
+                          icon: const Icon(Icons.video_library),
+                          label: Text(
+                            _selectedVideo == null
+                                ? "Select Video"
+                                : _selectedVideoName ?? "Video selected",
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blueAccent,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                            minimumSize: const Size(double.infinity, 50),
+                          ),
+                        ),
+                        if (_selectedVideo != null) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.green[50],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.green[200]!),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.check_circle, color: Colors.green[700]),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _selectedVideoName ?? "Video selected",
+                                    style: TextStyle(
+                                      color: Colors.green[900],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          onPressed: _isUploading ? null : _pickThumbnail,
+                          icon: const Icon(Icons.image),
+                          label: Text(
+                            _selectedThumbnail == null
+                                ? "Select Thumbnail (Optional)"
+                                : _selectedThumbnailName ?? "Thumbnail selected",
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                            minimumSize: const Size(double.infinity, 50),
+                          ),
+                        ),
+                        if (_selectedThumbnail != null) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.orange[50],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.orange[200]!),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.check_circle, color: Colors.orange[700]),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _selectedThumbnailName ?? "Thumbnail selected",
+                                    style: TextStyle(
+                                      color: Colors.orange[900],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: _isUploading ? null : _uploadAndSubmit,
+                  icon: _isUploading
+                      ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                      : const Icon(Icons.cloud_upload),
+                  label: Text(
+                    _isUploading ? "Uploading..." : "Upload Video",
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    minimumSize: const Size(double.infinity, 56),
+                    elevation: 4,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                if (_isUploading)
+                  Card(
+                    color: Colors.blue[50],
+                    elevation: 2,
+                    child: const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "Uploading to server...",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  "Please wait, this may take a few minutes",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.black54,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    super.dispose();
+  }
+}
+/// Custom Video Player Page
+class CustomVideoPlayerPage extends StatefulWidget {
+  final String videoId;
+
+  const CustomVideoPlayerPage({super.key, required this.videoId});
+
+  @override
+  State<CustomVideoPlayerPage> createState() => _CustomVideoPlayerPageState();
+}
+
+class _CustomVideoPlayerPageState extends State<CustomVideoPlayerPage> {
+  late InAppWebViewController webViewController;
+  double _progress = 0;
+  bool _isLoading = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final String htmlContent = '''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                overflow: hidden;
+            }
+            body {
+                background-color: #000;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+            }
+            #player {
+                width: 100vw;
+                height: 100vh;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="player"></div>
+        <script>
+            var tag = document.createElement('script');
+            tag.src = "https://www.youtube.com/iframe_api";
+            var firstScriptTag = document.getElementsByTagName('script')[0];
+            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+            
+            var player;
+            function onYouTubeIframeAPIReady() {
+                player = new YT.Player('player', {
+                    videoId: '${widget.videoId}',
+                    playerVars: {
+                        'autoplay': 1,
+                        'controls': 1,
+                        'modestbranding': 1,
+                        'rel': 0,
+                        'showinfo': 0,
+                        'fs': 1,
+                        'playsinline': 1
+                    },
+                    events: {
+                        'onReady': onPlayerReady
+                    }
+                });
+            }
+            
+            function onPlayerReady(event) {
+                event.target.playVideo();
+            }
+        </script>
+    </body>
+    </html>
+    ''';
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          "Video Player",
+          style: TextStyle(color: Colors.white),
+        ),
+      ),
+      body: Stack(
+        children: [
+          InAppWebView(
+            initialData: InAppWebViewInitialData(data: htmlContent),
+            initialSettings: InAppWebViewSettings(
+              mediaPlaybackRequiresUserGesture: false,
+              allowsInlineMediaPlayback: true,
+              javaScriptEnabled: true,
+              useHybridComposition: true,
+              transparentBackground: true,
+            ),
+            onWebViewCreated: (controller) {
+              webViewController = controller;
+            },
+            onLoadStart: (controller, url) {
+              setState(() {
+                _isLoading = true;
+              });
+            },
+            onLoadStop: (controller, url) {
+              setState(() {
+                _isLoading = false;
+              });
+            },
+            onProgressChanged: (controller, progress) {
+              setState(() {
+                _progress = progress / 100;
+              });
+            },
+          ),
+          if (_isLoading)
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    "${(_progress * 100).toStringAsFixed(0)}%",
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Add Course Page
 class AddCoursePage extends StatefulWidget {
   const AddCoursePage({super.key});
@@ -370,107 +1171,6 @@ class _AddCoursePageState extends State<AddCoursePage> {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// Upload Content Page
-class UploadContentPage extends StatefulWidget {
-  const UploadContentPage({super.key});
-
-  @override
-  State<UploadContentPage> createState() => _UploadContentPageState();
-}
-
-class _UploadContentPageState extends State<UploadContentPage> {
-  bool isUploading = false;
-  List<Map<String, dynamic>> uploadedFiles = [];
-  bool isLoadingFiles = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadFiles();
-  }
-
-  Future<void> _loadFiles() async {
-    setState(() => isLoadingFiles = true);
-    try {
-      final files = await ApiService.fetchUploadedFiles();
-      setState(() {
-        uploadedFiles = files;
-      });
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to load files: $e")),
-      );
-    }
-    setState(() => isLoadingFiles = false);
-  }
-
-  Future<void> _pickAndUploadFile() async {
-    final result = await FilePicker.platform.pickFiles();
-    if (result == null || result.files.single.path == null) return;
-
-    final file = File(result.files.single.path!);
-
-    setState(() => isUploading = true);
-
-    try {
-      final response = await ApiService.uploadFile(file);
-
-      final msg = response['msg'] ?? "Upload complete";
-      final fileUrl = response['data']?['fileUrl'] ?? "No fileUrl returned";
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("$msg\n$fileUrl")),
-      );
-
-      // refresh list after upload
-      await _loadFiles();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Upload failed: $e")),
-      );
-    }
-
-    setState(() => isUploading = false);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        ElevatedButton.icon(
-          onPressed: isUploading ? null : _pickAndUploadFile,
-          icon: const Icon(Icons.upload_file),
-          label: Text(isUploading ? "Uploading..." : "Upload Course File"),
-        ),
-        const SizedBox(height: 16),
-        Expanded(
-          child: isLoadingFiles
-              ? const Center(child: CircularProgressIndicator())
-              : uploadedFiles.isEmpty
-              ? const Center(child: Text("No files uploaded yet"))
-              : ListView.builder(
-            itemCount: uploadedFiles.length,
-            itemBuilder: (context, index) {
-              final file = uploadedFiles[index];
-              final url = file["fileUrl"] ?? "";
-              return Card(
-                child: ListTile(
-                  leading: const Icon(Icons.insert_drive_file),
-                  title: Text(url.split('/').last),
-                  subtitle: Text(url),
-                  onTap: () {
-                    // TODO: open file viewer later
-                  },
-                ),
-              );
-            },
-          ),
-        ),
-      ],
     );
   }
 }

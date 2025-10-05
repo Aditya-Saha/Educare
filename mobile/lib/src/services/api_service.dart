@@ -5,9 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   // ======================
-  // BASE URL
+  // BASE URL (Root only)
   // ======================
-  static const String baseUrl = "http://192.168.0.15:8080/api/teacher";
+  static const String baseUrl = "http://192.168.0.15:8080/api";
 
   static String? _token;
   static String? _role;
@@ -43,7 +43,7 @@ class ApiService {
   // ======================
   static Future<Map<String, dynamic>> signup(
       String name, String email, String password, String role) async {
-    final url = Uri.parse("http://192.168.0.15:8080/api/auth/register");
+    final url = Uri.parse("$baseUrl/auth/register");
 
     final response = await http.post(
       url,
@@ -59,8 +59,9 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
-  static Future<Map<String, dynamic>> login(String email, String password) async {
-    final url = Uri.parse("http://192.168.0.15:8080/api/auth/login");
+  static Future<Map<String, dynamic>> login(
+      String email, String password) async {
+    final url = Uri.parse("$baseUrl/auth/login");
 
     final response = await http.post(
       url,
@@ -73,7 +74,9 @@ class ApiService {
 
     final data = jsonDecode(response.body);
 
-    if (response.statusCode == 200 && data["token"] != null && data["role"] != null) {
+    if (response.statusCode == 200 &&
+        data["token"] != null &&
+        data["role"] != null) {
       await _saveAuth(data["token"], data["role"]);
     }
 
@@ -81,27 +84,24 @@ class ApiService {
   }
 
   // ======================
-  // COURSES (Teacher)
+  // TEACHER COURSES
   // ======================
-
-  /// Fetch all courses for logged-in teacher
   static Future<List<Map<String, dynamic>>> fetchCourses() async {
     await _ensureAuth();
+
     final response = await http.get(
-      Uri.parse("$baseUrl/courses"),
+      Uri.parse("$baseUrl/teacher/courses"),
       headers: {"Authorization": "Bearer $_token"},
     );
 
     final data = jsonDecode(response.body);
-
     if (response.statusCode == 200 && data["status"] == "ok") {
       return List<Map<String, dynamic>>.from(data["data"]);
     } else {
-      throw Exception("Failed to load courses: ${data["msg"]}");
+      throw Exception("Failed to load courses: ${data["msg"] ?? "Unknown"}");
     }
   }
 
-  /// Add a new course
   static Future<Map<String, dynamic>> addCourse(
       String title, String description, int price,
       {bool published = true}) async {
@@ -111,7 +111,7 @@ class ApiService {
     }
 
     final response = await http.post(
-      Uri.parse("$baseUrl/courses"),
+      Uri.parse("$baseUrl/teacher/courses"),
       headers: {
         "Content-Type": "application/json",
         "Authorization": "Bearer $_token",
@@ -132,43 +132,66 @@ class ApiService {
     }
   }
 
-  /// Update existing course
   static Future<Map<String, dynamic>> updateCourse(
       int id, String title, String description, int price,
       {bool published = true}) async {
+    print("----> updateCourse called");
+    print("Course ID: $id, Title: $title, Description: $description, Price: $price, Published: $published");
+
     await _ensureAuth();
+    print("Auth ensured. Role: $_role, Token: $_token");
+
     if (_role?.toUpperCase() != "TEACHER") {
+      print("Forbidden: Current role is $_role");
       throw Exception("Forbidden: Only TEACHER can edit courses.");
     }
 
-    final response = await http.put(
-      Uri.parse("$baseUrl/courses/$id"),
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $_token",
-      },
-      body: jsonEncode({
-        "title": title,
-        "description": description,
-        "price": price,
-        "published": published,
-      }),
-    );
+    final url = "$baseUrl/teacher/courses/$id";
+    print("PUT URL: $url");
 
-    final data = jsonDecode(response.body);
-    if (response.statusCode == 200 && data["status"] == "ok") {
-      return Map<String, dynamic>.from(data["data"]);
-    } else {
-      throw Exception("Failed to update course: ${data["msg"]}");
+    final body = jsonEncode({
+      "title": title,
+      "description": description,
+      "price": price,
+      "published": published,
+    });
+    print("Request body: $body");
+
+    try {
+      final response = await http.put(
+        Uri.parse(url),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $_token",
+        },
+        body: body,
+      );
+
+      print("Response status code: ${response.statusCode}");
+      print("Response body: ${response.body}");
+
+      final data = jsonDecode(response.body);
+      print("Decoded data: $data");
+
+      if (response.statusCode == 200 && data["status"] == "ok") {
+        print("Course updated successfully!");
+        return Map<String, dynamic>.from(data["data"]);
+      } else {
+        print("Failed to update course. Message: ${data["msg"]}");
+        throw Exception("Failed to update course: ${data["msg"]}");
+      }
+    } catch (e) {
+      print("Exception occurred: $e");
+      rethrow;
     }
   }
 
-  /// Fetch single course by ID
+
   static Future<Map<String, dynamic>> getCourseById(int id) async {
     await _ensureAuth();
 
     final response = await http.get(
-      Uri.parse("$baseUrl/courses/$id"),
+      Uri.parse("$baseUrl/teacher/courses/$id"),
       headers: {"Authorization": "Bearer $_token"},
     );
 
@@ -181,17 +204,119 @@ class ApiService {
   }
 
   // ======================
-  // FILE UPLOAD (Teacher)
+  // COURSE CONTENT
   // ======================
-  static Future<Map<String, dynamic>> uploadFile(File file) async {
+  static Future<List<Map<String, dynamic>>> fetchCourseContent(
+      int courseId) async {
+    await _ensureAuth();
+
+    final response = await http.get(
+      Uri.parse("$baseUrl/teacher/courses/$courseId/contents"),
+      headers: {"Authorization": "Bearer $_token"},
+    );
+
+    final data = jsonDecode(response.body);
+    if (response.statusCode == 200 && data["status"] == "ok") {
+      return List<Map<String, dynamic>>.from(data["data"]);
+    } else if (response.statusCode == 404) {
+      return [];
+    } else {
+      throw Exception("Failed to load course content: ${data["msg"] ?? "Unknown"}");
+    }
+  }
+
+  static Future<Map<String, dynamic>> addCourseContent({
+    required int courseId,
+    required String title,
+    required String fileType,
+    required String fileUrl,
+    int? durationSeconds,
+    required bool isFree,
+  }) async {
+    await _ensureAuth();
+    if (_role?.toUpperCase() != "TEACHER") {
+      throw Exception("Forbidden: Only TEACHER can add content.");
+    }
+
+    final response = await http.post(
+      Uri.parse("$baseUrl/teacher/courses/$courseId/contents"),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $_token",
+      },
+      body: jsonEncode({
+        "title": title,
+        "fileType": fileType,
+        "fileUrl": fileUrl,
+        "durationSeconds": durationSeconds,
+        "free": isFree,
+      }),
+    );
+
+    final data = jsonDecode(response.body);
+    if (response.statusCode == 200 && data["status"] == "ok") {
+      return Map<String, dynamic>.from(data["data"]);
+    } else {
+      throw Exception("Failed to add content: ${data["msg"]}");
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateCourseContent({
+    required int courseId,
+    required int contentId,
+    required String title,
+    required String fileType,
+    required String fileUrl,
+    int? durationSeconds,
+    required bool isFree,
+  }) async {
+    await _ensureAuth();
+    if (_role?.toUpperCase() != "TEACHER") {
+      throw Exception("Forbidden: Only TEACHER can update content.");
+    }
+
+    final response = await http.put(
+      Uri.parse("$baseUrl/teacher/courses/$courseId/contents/$contentId"),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $_token",
+      },
+      body: jsonEncode({
+        "title": title,
+        "fileType": fileType,
+        "fileUrl": fileUrl,
+        "durationSeconds": durationSeconds,
+        "free": isFree,
+      }),
+    );
+
+    final data = jsonDecode(response.body);
+    if (response.statusCode == 200 && data["status"] == "ok") {
+      return Map<String, dynamic>.from(data["data"]);
+    } else {
+      throw Exception("Failed to update content: ${data["msg"]}");
+    }
+  }
+
+  // ======================
+  // FILE UPLOAD
+  // ======================
+  static Future<Map<String, dynamic>> uploadCourseFile(File file,
+      {File? thumbnail}) async {
     await _ensureAuth();
     if (_role?.toUpperCase() != "TEACHER") {
       throw Exception("Forbidden: Only TEACHER can upload files.");
     }
 
-    final request = http.MultipartRequest("POST", Uri.parse("$baseUrl/course-content/upload"));
+    final request =
+    http.MultipartRequest("POST", Uri.parse("$baseUrl/teacher/upload"));
     request.headers["Authorization"] = "Bearer $_token";
     request.files.add(await http.MultipartFile.fromPath("file", file.path));
+
+    if (thumbnail != null) {
+      request.files
+          .add(await http.MultipartFile.fromPath("thumbnail", thumbnail.path));
+    }
 
     final response = await request.send();
     final body = await response.stream.bytesToString();
@@ -200,32 +325,6 @@ class ApiService {
       return jsonDecode(body);
     } else {
       throw Exception("Upload failed [${response.statusCode}]: $body");
-    }
-  }
-
-  static Future<List<Map<String, dynamic>>> fetchUploadedFiles() async {
-    await _ensureAuth();
-    if (_role?.toUpperCase() != "TEACHER") {
-      throw Exception("Forbidden: Only TEACHER can view uploaded files.");
-    }
-
-    final response = await http.get(
-      Uri.parse("$baseUrl/course-content/files"),
-      headers: {"Authorization": "Bearer $_token"},
-    );
-
-    final data = jsonDecode(response.body);
-
-    if (response.statusCode == 200) {
-      if (data is Map && data["status"] == "ok") {
-        return List<Map<String, dynamic>>.from(data["data"]);
-      } else if (data is List) {
-        return List<Map<String, dynamic>>.from(data);
-      } else {
-        throw Exception("Unexpected response format for uploaded files.");
-      }
-    } else {
-      throw Exception("Failed to fetch uploaded files: ${response.statusCode}");
     }
   }
 }
