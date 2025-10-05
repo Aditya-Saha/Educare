@@ -16,11 +16,11 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
   bool isDarkMode = true;
   late AnimationController _iconAnimation;
 
-  List<Widget> get _pages => const [
+  // Pages
+  final List<Widget> _pages = const [
     MyCoursesPage(),
+    AddCoursePage(),
     UploadContentPage(),
-    AssignmentsPage(),
-    ReportsPage(),
     SettingsPage(),
   ];
 
@@ -108,16 +108,12 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
             label: 'My Courses',
           ),
           BottomNavigationBarItem(
+            icon: Icon(Icons.add_box_outlined),
+            label: 'Add Course',
+          ),
+          BottomNavigationBarItem(
             icon: Icon(Icons.upload_file),
-            label: 'Upload',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.assignment),
-            label: 'Assignments',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart_outlined),
-            label: 'Reports',
+            label: 'Upload Content',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings_outlined),
@@ -137,34 +133,248 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
   }
 }
 
-/// =======================
-/// Teacher Pages
-/// =======================
+//
+// =======================
+// Teacher Pages
+// =======================
+//
 
-class MyCoursesPage extends StatelessWidget {
+/// My Courses Page
+class MyCoursesPage extends StatefulWidget {
   const MyCoursesPage({super.key});
 
   @override
+  State<MyCoursesPage> createState() => _MyCoursesPageState();
+}
+
+class _MyCoursesPageState extends State<MyCoursesPage> {
+  late Future<List<Map<String, dynamic>>> _coursesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _coursesFuture = ApiService.fetchCourses();
+  }
+
+  Future<void> _refreshCourses() async {
+    setState(() {
+      _coursesFuture = ApiService.fetchCourses();
+    });
+  }
+
+  void _editCourse(Map<String, dynamic> course) {
+    final titleController = TextEditingController(text: course["title"]);
+    final descController = TextEditingController(text: course["description"]);
+    final priceController = TextEditingController(text: course["price"]?.toString() ?? "0");
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Edit Course"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: titleController,
+                decoration: const InputDecoration(labelText: "Title"),
+              ),
+              TextField(
+                controller: descController,
+                decoration: const InputDecoration(labelText: "Description"),
+              ),
+              TextField(
+                controller: priceController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: "Price"),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              child: const Text("Cancel"),
+              onPressed: () => Navigator.pop(context),
+            ),
+            ElevatedButton(
+              child: const Text("Save"),
+              onPressed: () async {
+                try {
+                  await ApiService.updateCourse(
+                    course["id"],
+                    titleController.text.trim(),
+                    descController.text.trim(),
+                    int.tryParse(priceController.text.trim()) ?? 0,
+                  );
+                  if (!mounted) return;
+                  Navigator.pop(context);
+                  _refreshCourses();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("✅ Course updated")),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("❌ Failed to update: $e")),
+                  );
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return ListView(
-      children: const [
-        Card(
-          child: ListTile(
-            title: Text("Flutter Development"),
-            subtitle: Text("30 Students Enrolled"),
+    return RefreshIndicator(
+      onRefresh: _refreshCourses,
+      child: FutureBuilder<List<Map<String, dynamic>>>(
+        future: _coursesFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(
+              child: Text("❌ Failed to load courses:\n${snapshot.error}"),
+            );
+          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const Center(
+              child: Text("📭 No courses found. Add a course to get started."),
+            );
+          }
+
+          final courses = snapshot.data!;
+          return ListView.builder(
+            itemCount: courses.length,
+            itemBuilder: (context, index) {
+              final course = courses[index];
+              return Card(
+                child: ListTile(
+                  leading: const Icon(Icons.menu_book),
+                  title: Text(course["title"] ?? "Untitled"),
+                  subtitle: Text(course["description"] ?? "No description"),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text("₹${course["price"] ?? 0}"),
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.blueAccent),
+                        onPressed: () => _editCourse(course),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+/// Add Course Page
+class AddCoursePage extends StatefulWidget {
+  const AddCoursePage({super.key});
+
+  @override
+  State<AddCoursePage> createState() => _AddCoursePageState();
+}
+
+class _AddCoursePageState extends State<AddCoursePage> {
+  final _formKey = GlobalKey<FormState>();
+  final _titleController = TextEditingController();
+  final _descController = TextEditingController();
+  final _priceController = TextEditingController();
+
+  bool _isLoading = false;
+
+  Future<void> _submitCourse() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final title = _titleController.text.trim();
+    final desc = _descController.text.trim();
+    final price = int.tryParse(_priceController.text.trim()) ?? 0;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final course = await ApiService.addCourse(title, desc, price);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("✅ Course added: ${course['title']}")),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("❌ Failed to add course: $e")),
+      );
+    }
+
+    setState(() => _isLoading = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            children: [
+              TextFormField(
+                controller: _titleController,
+                decoration: const InputDecoration(
+                  labelText: "Course Title",
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) =>
+                value == null || value.isEmpty ? "Enter title" : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _descController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: "Description",
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) =>
+                value == null || value.isEmpty ? "Enter description" : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _priceController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: "Price (₹)",
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) return "Enter price";
+                  if (int.tryParse(value) == null) return "Enter valid number";
+                  return null;
+                },
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: _isLoading ? null : _submitCourse,
+                icon: const Icon(Icons.add),
+                label: Text(_isLoading ? "Adding..." : "Add Course"),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ],
           ),
         ),
-        Card(
-          child: ListTile(
-            title: Text("Data Science Basics"),
-            subtitle: Text("22 Students Enrolled"),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
 
+/// Upload Content Page
 class UploadContentPage extends StatefulWidget {
   const UploadContentPage({super.key});
 
@@ -265,42 +475,7 @@ class _UploadContentPageState extends State<UploadContentPage> {
   }
 }
 
-
-class AssignmentsPage extends StatelessWidget {
-  const AssignmentsPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      children: const [
-        Card(
-          child: ListTile(
-            title: Text("Assignment 1"),
-            subtitle: Text("Due: 2025-10-20"),
-          ),
-        ),
-        Card(
-          child: ListTile(
-            title: Text("Assignment 2"),
-            subtitle: Text("Due: 2025-10-30"),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class ReportsPage extends StatelessWidget {
-  const ReportsPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Text("Reports and Analytics will be shown here"),
-    );
-  }
-}
-
+/// Settings Page
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
