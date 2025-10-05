@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import java.util.List;
 
 import jakarta.validation.Valid;
@@ -36,12 +37,17 @@ public class CourseController {
     @PutMapping("/courses/{id}")
     public ResponseEntity<ApiResponse<Course>> editCourse(
             @PathVariable Long id,
-            @RequestBody @Valid AddCourseRequest request) {
+            @RequestBody @Valid AddCourseRequest request, @AuthenticationPrincipal User currentUser) {
 
-        User teacher = userService.getCurrentUser(); // logged-in teacher
+        if (currentUser == null) {
+            return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.error("User not authenticated"));
+        }
+
         Course course = courseService.getCourseById(id);
-        if (!course.getTeacher().getId().equals(teacher.getId())) {
-           return ResponseEntity
+        if (!course.getTeacher().getId().equals(currentUser.getId())) {
+        return ResponseEntity
                 .status(HttpStatus.FORBIDDEN)
                 .body(ApiResponse.error("You are not allowed to edit this course"));
         }
