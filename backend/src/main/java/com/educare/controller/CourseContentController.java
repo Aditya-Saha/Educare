@@ -3,6 +3,7 @@ package com.educare.controller;
 import com.educare.dto.AddCourseContentRequest;
 import com.educare.dto.ApiResponse;
 import com.educare.entity.CourseContent;
+import com.educare.entity.User;
 import com.educare.service.CourseContentService;
 import com.educare.repository.CourseContentRepository;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +13,8 @@ import org.springframework.web.bind.annotation.*;
 import com.educare.entity.CourseContent;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+
 
 import jakarta.validation.Valid;
 import java.util.List;
@@ -25,12 +28,18 @@ public class CourseContentController {
     private final CourseContentRepository courseContentRepository;
 
     @GetMapping("/courses/{courseId}/contents")
-    public List<CourseContent> getContents(Long userId, Long courseId, String role) {
-        if (role.equals("TEACHER") || role.equals("ADMIN")) {
-            return courseContentRepository.findByCourseId(courseId);
+    public ResponseEntity<ApiResponse<List<CourseContent>>> getContents(
+            @PathVariable Long courseId,
+            @AuthenticationPrincipal User currentUser) {
+
+        List<CourseContent> contents;
+        if (currentUser.getRole().equalsIgnoreCase("TEACHER") || currentUser.getRole().equalsIgnoreCase("ADMIN")) {
+            contents = courseContentRepository.findByCourseId(courseId);
         } else {
-            return courseContentRepository.findAccessibleContentsForStudent(userId, courseId);
+            contents = courseContentRepository.findAccessibleContentsForStudent(currentUser.getId(), courseId);
         }
+
+        return ResponseEntity.ok(ApiResponse.ok("Course contents fetched", contents));
     }
 
     @PostMapping(value = "/courses/{courseId}/contents")
