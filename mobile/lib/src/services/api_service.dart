@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http_parser/http_parser.dart';
+import 'package:mime/mime.dart';
 
 class ApiService {
   // ======================
@@ -36,13 +38,14 @@ class ApiService {
   }
 
   static String? get token => _token;
+
   static String? get role => _role;
 
   // ======================
   // AUTH
   // ======================
-  static Future<Map<String, dynamic>> signup(
-      String name, String email, String password, String role) async {
+  static Future<Map<String, dynamic>> signup(String name, String email,
+      String password, String role) async {
     final url = Uri.parse("$baseUrl/auth/register");
 
     final response = await http.post(
@@ -59,8 +62,8 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
-  static Future<Map<String, dynamic>> login(
-      String email, String password) async {
+  static Future<Map<String, dynamic>> login(String email,
+      String password) async {
     final url = Uri.parse("$baseUrl/auth/login");
 
     final response = await http.post(
@@ -102,8 +105,8 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>> addCourse(
-      String title, String description, int price,
+  static Future<Map<String, dynamic>> addCourse(String title,
+      String description, int price,
       {bool published = true}) async {
     await _ensureAuth();
     if (_role?.toUpperCase() != "TEACHER") {
@@ -132,11 +135,12 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>> updateCourse(
-      int id, String title, String description, int price,
+  static Future<Map<String, dynamic>> updateCourse(int id, String title,
+      String description, int price,
       {bool published = true}) async {
     print("----> updateCourse called");
-    print("Course ID: $id, Title: $title, Description: $description, Price: $price, Published: $published");
+    print(
+        "Course ID: $id, Title: $title, Description: $description, Price: $price, Published: $published");
 
     await _ensureAuth();
     print("Auth ensured. Role: $_role, Token: $_token");
@@ -221,7 +225,8 @@ class ApiService {
     } else if (response.statusCode == 404) {
       return [];
     } else {
-      throw Exception("Failed to load course content: ${data["msg"] ?? "Unknown"}");
+      throw Exception(
+          "Failed to load course content: ${data["msg"] ?? "Unknown"}");
     }
   }
 
@@ -301,25 +306,63 @@ class ApiService {
   // ======================
   // FILE UPLOAD
   // ======================
-  static Future<Map<String, dynamic>> uploadCourseFile(File file,
-      {File? thumbnail}) async {
+  // ======================
+// FILE UPLOAD (fixed frontend-side)
+// ======================
+  static Future<Map<String, dynamic>> uploadCourseFile(File file, {File? thumbnail}) async {
     await _ensureAuth();
+
     if (_role?.toUpperCase() != "TEACHER") {
       throw Exception("Forbidden: Only TEACHER can upload files.");
     }
 
-    final request =
-    http.MultipartRequest("POST", Uri.parse("$baseUrl/teacher/upload"));
-    request.headers["Authorization"] = "Bearer $_token";
-    request.files.add(await http.MultipartFile.fromPath("file", file.path));
+    final url = "$baseUrl/teacher/upload";
+    print("🟢 Uploading to: $url");
+    print("🟢 Token: $_token");
+    print("🟢 File exists: ${await file.exists()}");
+    print("🟢 File path: ${file.path}");
+    if (thumbnail != null) print("🟢 Thumbnail path: ${thumbnail.path}");
 
+    final mimeType = lookupMimeType(file.path) ?? 'application/octet-stream';
+    final mimeSplit = mimeType.split('/');
+    final mediaType = MediaType(mimeSplit[0], mimeSplit[1]);
+    print("🟢 Detected MIME type: $mimeType");
+
+    final request = http.MultipartRequest("POST", Uri.parse(url));
+    request.headers["Authorization"] = "Bearer $_token";
+
+    // ✅ Add main file
+    request.files.add(await http.MultipartFile.fromPath(
+      "file",
+      file.path,
+      contentType: mediaType,
+    ));
+
+    // ✅ Ensure "thumbnail" is always sent
     if (thumbnail != null) {
-      request.files
-          .add(await http.MultipartFile.fromPath("thumbnail", thumbnail.path));
+      final thumbMimeType = lookupMimeType(thumbnail.path) ?? 'image/jpeg';
+      final thumbSplit = thumbMimeType.split('/');
+      request.files.add(await http.MultipartFile.fromPath(
+        "thumbnail",
+        thumbnail.path,
+        contentType: MediaType(thumbSplit[0], thumbSplit[1]),
+      ));
+    } else {
+      // 🧩 Send a tiny dummy thumbnail to prevent null error in backend
+      final dummyBytes = utf8.encode("empty-thumbnail");
+      request.files.add(http.MultipartFile.fromBytes(
+        "thumbnail",
+        dummyBytes,
+        filename: "empty.jpg",
+        contentType: MediaType("image", "jpeg"),
+      ));
     }
 
     final response = await request.send();
     final body = await response.stream.bytesToString();
+
+    print("🔵 Response Code: ${response.statusCode}");
+    print("🔵 Response Body: $body");
 
     if (response.statusCode == 200) {
       return jsonDecode(body);
@@ -327,4 +370,6 @@ class ApiService {
       throw Exception("Upload failed [${response.statusCode}]: $body");
     }
   }
+
+
 }

@@ -18,9 +18,13 @@ dependencies:
   video_player: ^2.8.1
   open_filex: ^4.3.2
   flutter_inappwebview: ^6.1.5
+  mime: ^1.0.6
 
   cupertino_icons: ^1.0.8
   google_fonts: ^6.1.0
+
+  google_sign_in: ^6.2.1
+  googleapis: ^13.1.0
 
 dev_dependencies:
   flutter_test:
