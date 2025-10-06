@@ -6,6 +6,7 @@ import 'src/screens/signup_screen.dart';
 import 'src/screens/home_screen.dart';           // student home
 import 'src/screens/teacher_home_screen.dart';  // teacher home
 
+
 void main() {
   runApp(const EducareApp());
 }
