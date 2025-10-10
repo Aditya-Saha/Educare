@@ -1,6 +1,8 @@
 // lib/screens/teacher/add_course_page.dart
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import 'document_viewer_page.dart';
+
 
 class AddCoursePage extends StatefulWidget {
   const AddCoursePage({super.key});

@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'add_course_content_page.dart';
 import 'custom_video_player_page.dart';
+import 'document_viewer_page.dart';
+
+
 
 class CourseContentPage extends StatefulWidget {
   final Map<String, dynamic> course;
@@ -74,6 +77,27 @@ class _CourseContentPageState extends State<CourseContentPage> {
     }
   }
 
+  void _openDocument(String url, String fileType, String title) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DocumentViewerPage(
+          url: url,
+          fileType: fileType,
+          title: title,
+        ),
+      ),
+    );
+  }
+
+  void _handleContentTap(String url, String fileType, String title) {
+    if (fileType.toUpperCase() == 'VIDEO') {
+      _playVideo(url);
+    } else if (['PDF', 'DOC', 'PPT'].contains(fileType.toUpperCase())) {
+      _openDocument(url, fileType, title);
+    }
+  }
+
   IconData _getFileIcon(String fileType) {
     switch (fileType.toUpperCase()) {
       case 'VIDEO':
@@ -87,6 +111,69 @@ class _CourseContentPageState extends State<CourseContentPage> {
       default:
         return Icons.insert_drive_file;
     }
+  }
+
+  Widget _buildThumbnail(String fileType, String url) {
+    if (fileType.toUpperCase() == "VIDEO") {
+      return Image.network(
+        _getYouTubeThumbnail(url),
+        width: double.infinity,
+        height: 200,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            height: 200,
+            color: Colors.grey[300],
+            child: const Icon(Icons.video_library, size: 60),
+          );
+        },
+      );
+    } else {
+      return Container(
+        height: 200,
+        color: Colors.grey[200],
+        child: Center(
+          child: Icon(
+            _getFileIcon(fileType),
+            size: 80,
+            color: Colors.blueAccent,
+          ),
+        ),
+      );
+    }
+  }
+
+  Widget _buildOverlayIcon(String fileType) {
+    IconData icon;
+    switch (fileType.toUpperCase()) {
+      case 'VIDEO':
+        icon = Icons.play_arrow;
+        break;
+      case 'PDF':
+      case 'DOC':
+      case 'PPT':
+        icon = Icons.open_in_new;
+        break;
+      default:
+        icon = Icons.open_in_new;
+    }
+
+    return Positioned.fill(
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.black54,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            color: Colors.white,
+            size: 40,
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -119,7 +206,7 @@ class _CourseContentPageState extends State<CourseContentPage> {
                   const Icon(Icons.video_library_outlined, size: 80, color: Colors.grey),
                   const SizedBox(height: 16),
                   const Text(
-                    "No videos added yet",
+                    "No content added yet",
                     style: TextStyle(fontSize: 18, color: Colors.grey),
                   ),
                   const SizedBox(height: 24),
@@ -147,43 +234,15 @@ class _CourseContentPageState extends State<CourseContentPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (fileType.toUpperCase() == "VIDEO")
-                      GestureDetector(
-                        onTap: () => _playVideo(url),
-                        child: Stack(
-                          children: [
-                            Image.network(
-                              _getYouTubeThumbnail(url),
-                              width: double.infinity,
-                              height: 200,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  height: 200,
-                                  color: Colors.grey[300],
-                                  child: const Icon(Icons.video_library, size: 60),
-                                );
-                              },
-                            ),
-                            Positioned.fill(
-                              child: Center(
-                                child: Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black54,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.play_arrow,
-                                    color: Colors.white,
-                                    size: 40,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                    GestureDetector(
+                      onTap: () => _handleContentTap(url, fileType, title),
+                      child: Stack(
+                        children: [
+                          _buildThumbnail(fileType, url),
+                          _buildOverlayIcon(fileType),
+                        ],
                       ),
+                    ),
                     Padding(
                       padding: const EdgeInsets.all(12),
                       child: Column(

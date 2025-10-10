@@ -308,9 +308,8 @@ class ApiService {
   // ======================
   // FILE UPLOAD
   // ======================
-  // ======================
-// FILE UPLOAD (fixed frontend-side)
-// ======================
+  // Replace the uploadCourseFile method in your ApiService class
+
   static Future<Map<String, dynamic>> uploadCourseFile(File file, {File? thumbnail}) async {
     await _ensureAuth();
 
@@ -333,31 +332,26 @@ class ApiService {
     final request = http.MultipartRequest("POST", Uri.parse(url));
     request.headers["Authorization"] = "Bearer $_token";
 
-    // ✅ Add main file
+    // Add main file
     request.files.add(await http.MultipartFile.fromPath(
       "file",
       file.path,
       contentType: mediaType,
     ));
 
-    // ✅ Ensure "thumbnail" is always sent
-    if (thumbnail != null) {
+    // Only add thumbnail if it's actually provided (for videos)
+    // For documents (PDF/PPT/DOC), thumbnail will be null and won't be sent
+    if (thumbnail != null && await thumbnail.exists()) {
       final thumbMimeType = lookupMimeType(thumbnail.path) ?? 'image/jpeg';
       final thumbSplit = thumbMimeType.split('/');
+      print("🟢 Adding thumbnail with MIME: $thumbMimeType");
       request.files.add(await http.MultipartFile.fromPath(
         "thumbnail",
         thumbnail.path,
         contentType: MediaType(thumbSplit[0], thumbSplit[1]),
       ));
     } else {
-      // 🧩 Send a tiny dummy thumbnail to prevent null error in backend
-      final dummyBytes = utf8.encode("empty-thumbnail");
-      request.files.add(http.MultipartFile.fromBytes(
-        "thumbnail",
-        dummyBytes,
-        filename: "empty.jpg",
-        contentType: MediaType("image", "jpeg"),
-      ));
+      print("🟡 No thumbnail provided - uploading without thumbnail");
     }
 
     final response = await request.send();
@@ -372,6 +366,5 @@ class ApiService {
       throw Exception("Upload failed [${response.statusCode}]: $body");
     }
   }
-
 
 }
