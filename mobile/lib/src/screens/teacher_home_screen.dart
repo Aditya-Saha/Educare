@@ -11,17 +11,16 @@ import 'add_course_content_page.dart';
 import 'custom_video_player_page.dart';  // 👈 ADD
 
 class TeacherHomeScreen extends StatefulWidget {
-  const TeacherHomeScreen({super.key});
+  final VoidCallback? onThemeToggle;
+
+  const TeacherHomeScreen({super.key, this.onThemeToggle});
 
   @override
   State<TeacherHomeScreen> createState() => _TeacherHomeScreenState();
 }
 
-class _TeacherHomeScreenState extends State<TeacherHomeScreen>
-    with SingleTickerProviderStateMixin {
+class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   int _selectedIndex = 0;
-  bool isDarkMode = true;
-  late AnimationController _iconAnimation;
 
   final List<Widget> _pages = const [
     MyCoursesPage(),
@@ -30,29 +29,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
   ];
 
   @override
-  void initState() {
-    super.initState();
-    _iconAnimation = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 400),
-    );
-  }
-
-  @override
   void dispose() {
-    _iconAnimation.dispose();
     super.dispose();
-  }
-
-  void _toggleTheme() {
-    setState(() {
-      isDarkMode = !isDarkMode;
-      if (isDarkMode) {
-        _iconAnimation.reverse();
-      } else {
-        _iconAnimation.forward();
-      }
-    });
   }
 
   void _onItemTapped(int index) {
@@ -63,63 +41,201 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = isDarkMode ? const Color(0xFF0F1724) : Colors.white;
-    final textColor = isDarkMode ? Colors.white : Colors.black87;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? const Color(0xFF121212) : const Color(0xFFFAFAFA);
+    final appBarColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final textColor = isDark ? Colors.white : const Color(0xFF030303);
+    final hintColor = isDark ? const Color(0xFFB0B0B0) : const Color(0xFF606060);
+    final bottomBarColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
 
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
-        title: Text("Teacher Panel", style: TextStyle(color: textColor)),
-        backgroundColor: Colors.transparent,
         elevation: 0,
+        backgroundColor: appBarColor,
+        title: Text(
+          "Teacher Panel",
+          style: TextStyle(
+            color: textColor,
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
+          ),
+        ),
         iconTheme: IconThemeData(color: textColor),
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {},
+            icon: Icon(Icons.notifications_outlined, color: textColor),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text("No new notifications"),
+                  backgroundColor: isDark
+                      ? const Color(0xFF313131)
+                      : Colors.grey.shade300,
+                  behavior: SnackBarBehavior.floating,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            },
+            tooltip: "Notifications",
           ),
           IconButton(
-            icon: AnimatedBuilder(
-              animation: _iconAnimation,
-              builder: (context, child) {
-                return Transform.rotate(
-                  angle: _iconAnimation.value * 3.14,
-                  child: Icon(
-                    isDarkMode ? Icons.dark_mode : Icons.light_mode,
-                    color: textColor,
+            icon: Icon(
+              Theme.of(context).brightness == Brightness.dark
+                  ? Icons.light_mode
+                  : Icons.dark_mode,
+              color: textColor,
+            ),
+            onPressed: () {
+              if (widget.onThemeToggle != null) {
+                widget.onThemeToggle!();
+                // Show feedback
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      Theme.of(context).brightness == Brightness.dark
+                          ? "Switched to dark mode"
+                          : "Switched to light mode",
+                    ),
+                    backgroundColor: isDark
+                        ? const Color(0xFF313131)
+                        : Colors.grey.shade300,
+                    behavior: SnackBarBehavior.floating,
+                    duration: const Duration(milliseconds: 500),
                   ),
                 );
-              },
-            ),
-            onPressed: _toggleTheme,
+              }
+            },
+            tooltip: "Toggle Theme",
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
+      body: Container(
+        color: bgColor,
         child: _pages[_selectedIndex],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: isDarkMode ? const Color(0xFF1E293B) : Colors.grey[100],
-        selectedItemColor: Colors.blueAccent,
-        unselectedItemColor: isDarkMode ? Colors.white70 : Colors.black45,
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.menu_book_outlined), label: 'My Courses'),
-          BottomNavigationBarItem(icon: Icon(Icons.add_box_outlined), label: 'Add Course'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), label: 'Settings'),
-        ],
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: bottomBarColor,
+          border: Border(
+            top: BorderSide(
+              color: isDark
+                  ? const Color(0xFF313131)
+                  : const Color(0xFFE0E0E0),
+              width: 0.5,
+            ),
+          ),
+        ),
+        child: BottomNavigationBar(
+          backgroundColor: bottomBarColor,
+          elevation: 0,
+          selectedItemColor: Colors.blue.shade600,
+          unselectedItemColor: hintColor,
+          currentIndex: _selectedIndex,
+          onTap: _onItemTapped,
+          type: BottomNavigationBarType.fixed,
+          selectedLabelStyle: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 12,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontWeight: FontWeight.w500,
+            fontSize: 12,
+          ),
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.menu_book_outlined),
+              activeIcon: Icon(Icons.menu_book),
+              label: 'My Courses',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.add_box_outlined),
+              activeIcon: Icon(Icons.add_box),
+              label: 'Add Course',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.settings_outlined),
+              activeIcon: Icon(Icons.settings),
+              label: 'Settings',
+            ),
+          ],
+        ),
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          Navigator.pushReplacementNamed(context, '/login');
+          _showLogoutDialog(context, bgColor, appBarColor, textColor, hintColor);
         },
-        backgroundColor: Colors.redAccent,
-        child: const Icon(Icons.logout),
+        backgroundColor: Colors.red.shade600,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.logout),
+        label: const Text("Logout"),
         tooltip: 'Logout',
       ),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context, Color bgColor, Color appBarColor,
+      Color textColor, Color hintColor) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return AlertDialog(
+          backgroundColor: appBarColor,
+          shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(
+            "Logout",
+            style: TextStyle(
+              color: textColor,
+              fontWeight: FontWeight.w600,
+              fontSize: 18,
+            ),
+          ),
+          content: Text(
+            "Are you sure you want to logout from your account?",
+            style: TextStyle(
+              color: hintColor,
+              fontSize: 14,
+              height: 1.5,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                "Cancel",
+                style: TextStyle(
+                  color: hintColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade600,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.pushReplacementNamed(context, '/login');
+              },
+              child: const Text(
+                "Logout",
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

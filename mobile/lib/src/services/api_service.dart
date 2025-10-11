@@ -305,6 +305,243 @@ class ApiService {
     }
   }
 
+// ======================
+// NOTES MANAGEMENT
+// ======================
+
+  /// Fetch all notes for a course
+  static Future<List<Map<String, dynamic>>> fetchCourseNotes(int courseId) async {
+    await _ensureAuth();
+
+    final url = Uri.parse("http://192.168.0.15:8080/notes/courses/$courseId");
+    final response = await http.get(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $_token",
+      },
+    );
+
+    print("🔵 fetchCourseNotes Response Code: ${response.statusCode}");
+    print("🔵 fetchCourseNotes Response Body: ${response.body}");
+
+    final data = jsonDecode(response.body);
+    if (response.statusCode == 200) {
+      if (data['success'] == true && data['data'] != null) {
+        return List<Map<String, dynamic>>.from(data['data']);
+      } else if (data['status'] == 'ok' && data['data'] != null) {
+        return List<Map<String, dynamic>>.from(data['data']);
+      }
+      return [];
+    } else {
+      throw Exception(data['message'] ?? 'Failed to load notes: ${response.statusCode}');
+    }
+  }
+
+  /// Fetch a single note by ID
+  static Future<Map<String, dynamic>> fetchNoteById(int noteId) async {
+    await _ensureAuth();
+
+    final url = Uri.parse("http://192.168.0.15:8080/notes/$noteId");
+    final response = await http.get(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $_token",
+      },
+    );
+
+    print("🔵 fetchNoteById Response Code: ${response.statusCode}");
+    print("🔵 fetchNoteById Response Body: ${response.body}");
+
+    final data = jsonDecode(response.body);
+    if (response.statusCode == 200) {
+      if (data['success'] == true && data['data'] != null) {
+        return Map<String, dynamic>.from(data['data']);
+      } else if (data['status'] == 'ok' && data['data'] != null) {
+        return Map<String, dynamic>.from(data['data']);
+      }
+      throw Exception('Note not found');
+    } else {
+      throw Exception(data['message'] ?? 'Failed to load note: ${response.statusCode}');
+    }
+  }
+
+  /// Add a new note or reply
+  static Future<Map<String, dynamic>> addNote({
+    required int courseId,
+    int? contentId,
+    required String noteText,
+    int? parentNoteId,
+  }) async {
+    await _ensureAuth();
+
+    try {
+      final body = {
+        'courseId': courseId,
+        'title': noteText,
+        'content': noteText,
+        if (contentId != null) 'contentId': contentId,
+        if (parentNoteId != null) 'parentNoteId': parentNoteId,
+      };
+
+      final response = await http.post(
+        Uri.parse("http://192.168.0.15:8080/notes/add"),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $_token",
+        },
+        body: jsonEncode(body),
+      );
+
+      print("🔵 addNote Response Code: ${response.statusCode}");
+      print("🔵 addNote Response Body: ${response.body}");
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && (data['success'] == true || data['status'] == 'ok')) {
+        return Map<String, dynamic>.from(data['data'] ?? {});
+      } else {
+        final errorMsg = data['message'] ?? data['msg'] ?? 'Failed to add note';
+        throw Exception(errorMsg);
+      }
+    } catch (e) {
+      // If server didn't return JSON (like 500 HTML page), handle it
+      if (e is FormatException) {
+        throw Exception('Server error: Please try again later');
+      }
+      rethrow;
+    }
+  }
+
+  /// Update an existing note
+  static Future<Map<String, dynamic>> updateNote({
+    required int noteId,
+    required int courseId,
+    int? contentId,
+    int? parentNoteId,
+    required String noteText,
+  }) async {
+    await _ensureAuth();
+
+    final body = {
+      'noteId': noteId,
+      'courseId': courseId,
+      'title': noteText,
+      'content': noteText,
+      if (contentId != null) 'contentId': contentId,
+      if (parentNoteId != null) 'parentNoteId': parentNoteId,
+    };
+
+    // Try PUT method first for proper REST
+    var response = await http.put(
+      Uri.parse("http://192.168.0.15:8080/notes/update/$noteId"),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $_token",
+      },
+      body: jsonEncode(body),
+    );
+
+    print("🔵 updateNote Response Code: ${response.statusCode}");
+    print("🔵 updateNote Response Body: ${response.body}");
+
+    // If PUT fails with 404/405, try POST as fallback
+    if (response.statusCode == 404 || response.statusCode == 405) {
+      print("🔵 Trying POST method as fallback...");
+      response = await http.post(
+        Uri.parse("http://192.168.0.15:8080/notes/update/$noteId"),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $_token",
+        },
+        body: jsonEncode(body),
+      );
+      print("🔵 POST Response Code: ${response.statusCode}");
+      print("🔵 POST Response Body: ${response.body}");
+    }
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final data = jsonDecode(response.body);
+
+      if (data['success'] == true || data['status'] == 'ok') {
+        return data['data'] != null
+            ? Map<String, dynamic>.from(data['data'])
+            : {'id': noteId, 'noteText': noteText};
+      } else {
+        throw Exception(data['message'] ?? 'Failed to update note');
+      }
+    } else if (response.statusCode == 403) {
+      throw Exception('You do not have permission to edit this note');
+    } else {
+      try {
+        final data = jsonDecode(response.body);
+        throw Exception(data['message'] ?? 'Failed to update note');
+      } catch (e) {
+        throw Exception('Failed to update note: ${response.statusCode}');
+      }
+    }
+  }
+
+  /// Delete a note
+  static Future<void> deleteNote({
+    required int noteId,
+    required int courseId,
+  }) async {
+    await _ensureAuth();
+
+    // Try DELETE method first
+    var response = await http.delete(
+      Uri.parse("http://192.168.0.15:8080/notes/delete/$noteId"),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $_token",
+      },
+      body: jsonEncode({'courseId': courseId}),
+    );
+
+    print("🔵 deleteNote Response Code: ${response.statusCode}");
+    print("🔵 deleteNote Response Body: ${response.body}");
+
+    // If DELETE fails with 404/405, try POST as fallback
+    if (response.statusCode == 404 || response.statusCode == 405) {
+      print("🔵 Trying POST method for delete as fallback...");
+      response = await http.post(
+        Uri.parse("http://192.168.0.15:8080/notes/delete/$noteId"),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $_token",
+        },
+        body: jsonEncode({'courseId': courseId}),
+      );
+      print("🔵 POST Delete Response Code: ${response.statusCode}");
+      print("🔵 POST Delete Response Body: ${response.body}");
+    }
+
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      try {
+        if (response.body.isNotEmpty) {
+          final data = jsonDecode(response.body);
+          if (data['success'] != true && data['status'] != 'ok') {
+            throw Exception(data['message'] ?? 'Failed to delete note');
+          }
+        }
+        // Success - note deleted
+      } catch (e) {
+        if (e is Exception) rethrow;
+        // If JSON parsing fails but status is 200/204, consider it success
+      }
+    } else if (response.statusCode == 403) {
+      throw Exception('You do not have permission to delete this note');
+    } else {
+      try {
+        final data = jsonDecode(response.body);
+        throw Exception(data['message'] ?? 'Failed to delete note');
+      } catch (e) {
+        throw Exception('Failed to delete note: ${response.statusCode}');
+      }
+    }
+  }
   // ======================
   // FILE UPLOAD
   // ======================
