@@ -8,7 +8,8 @@ public class AddCourseRequest {
     private String title;
     private String description;
     private BigDecimal price;
-    private boolean published;  // simpler
+    private boolean published;
+    private String imageUrl;
     public boolean isPublished() { return published; }
     public void setPublished(boolean published) { this.published = published; }
 

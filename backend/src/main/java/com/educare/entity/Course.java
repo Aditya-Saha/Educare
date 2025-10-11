@@ -39,4 +39,8 @@ public class Course {
     private LocalDateTime createdAt = LocalDateTime.now();
     @Builder.Default
     private LocalDateTime updatedAt = LocalDateTime.now();
+
+     @Column(length = 500)
+    private String imageUrl;
+
 }

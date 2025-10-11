@@ -27,6 +27,7 @@ public class CourseService {
                 .isPublished(request.isPublished())
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
+                .imageUrl(request.getImageUrl())
                 .build();
 
         return courseRepository.save(course);
